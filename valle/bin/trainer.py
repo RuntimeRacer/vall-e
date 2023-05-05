@@ -1082,8 +1082,8 @@ def scan_pessimistic_batches_for_oom(
     )
     batches, crit_values = find_pessimistic_batches(train_dl.sampler)
 
-    # scaler = GradScaler(
-        enabled=(params.dtype in ["fp16", "float16"]), init_scale=1.0
+    scaler = GradScaler(
+        enabled=accelerator.use_fp16, init_scale=1.0
     )
 
     for criterion, cuts in batches.items():
@@ -1091,12 +1091,13 @@ def scan_pessimistic_batches_for_oom(
         try:
             with accelerator.autocast():
                 _, loss, _ = compute_loss(
+                    accelerator=accelerator,
                     params=params,
                     model=model,
                     batch=batch,
                     is_training=True,
                 )
-            scaler.scale(loss).backward()
+            accelerator.backward(scaler.scale(loss))
             optimizer.zero_grad()
         except Exception as e:
             if "CUDA out of memory" in str(e):
