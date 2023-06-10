@@ -64,7 +64,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from valle.data import TtsDataModule
 from valle.models import add_model_arguments, get_model
-from valle.modules.optim import Eden, Eve, ScaledAdam
+from valle.modules.optim import Eden, EdenSGDR, Eve, ScaledAdam
 from valle.modules.scheduler import get_scheduler
 
 LRSchedulerType = torch.optim.lr_scheduler._LRScheduler
@@ -1032,7 +1032,7 @@ def run(rank, world_size, args):
     )
     valid_dl = dataset.valid_dataloaders(valid_cuts)
 
-    if params.oom_check and params.start_epoch == 1:
+    if params.oom_check:
         scan_pessimistic_batches_for_oom(
             model=model,
             train_dl=train_dl,
@@ -1048,7 +1048,7 @@ def run(rank, world_size, args):
         scaler.load_state_dict(checkpoints["grad_scaler"])
 
     for epoch in range(params.start_epoch, params.num_epochs + 1):
-        if isinstance(scheduler, Eden):
+        if isinstance(scheduler, Eden) or isinstance(scheduler, EdenSGDR):
             scheduler.step_epoch(epoch - 1)
 
         fix_random_seed(params.seed + epoch - 1)

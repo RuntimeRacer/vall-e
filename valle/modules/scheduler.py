@@ -18,7 +18,7 @@
 
 import torch
 
-from valle.modules.optim import Eden
+from valle.modules.optim import Eden, EdenSGDR
 
 
 def calc_lr(step, dim_embed, warmup_steps):
@@ -58,6 +58,8 @@ class NoamScheduler(torch.optim.lr_scheduler._LRScheduler):
 def get_scheduler(params, optimizer):
     if params.scheduler_name.lower() == "eden":
         scheduler = Eden(optimizer, 5000, 4, warmup_batches=params.warmup_steps)
+    elif params.scheduler_name.lower() == "edensgdr":
+        scheduler = EdenSGDR(optimizer, 5000, 1, warmup_batches=params.warmup_steps)
     elif params.scheduler_name.lower() == "noam":
         scheduler = NoamScheduler(
             params.base_lr,
