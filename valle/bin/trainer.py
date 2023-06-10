@@ -686,7 +686,7 @@ def train_one_epoch(
                     optimizer.zero_grad()
 
                     for k in range(params.accumulate_grad_steps):
-                        if isinstance(scheduler, Eden):
+                        if isinstance(scheduler, Eden) or isinstance(scheduler, EdenSGDR):
                             scheduler.step_batch(params.batch_idx_train)
                         else:
                             scheduler.step()
