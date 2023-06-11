@@ -849,15 +849,13 @@ class EdenSGDR(LRScheduler):
         self.lr_batches_factor = lr_batches_factor
         self.warmup_batches = warmup_batches
         self.sgdr_batch_idx = 0
-        self.sgdr_batch_factor = 0
+        self.sgdr_batch_factor = lr_batches
 
     def step_epoch(self, epoch: Optional[int] = None):
         super().step_epoch(epoch)
         self.set_sgdr_idx(self.batch)
         if epoch > 0:
             self.sgdr_batch_factor = ((self.sgdr_batch_idx / self.epoch) * self.lr_batches_factor) / self.epoch
-        else:
-            self.sgdr_batch_factor = self.lr_batches
 
     def set_sgdr_idx(self, sgdr_batch_idx):
         self.sgdr_batch_idx = sgdr_batch_idx
