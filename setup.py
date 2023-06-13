@@ -142,7 +142,7 @@ dev_requires = sorted(
     docs_require
     + tests_require
     + workflow_requires
-    + ["jupyterlab", "matplotlib"]
+    + ["jupyterlab", "matplotlib", "anyascii"]
 )
 all_requires = sorted(dev_requires)
 
