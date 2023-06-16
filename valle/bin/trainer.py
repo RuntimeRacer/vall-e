@@ -32,6 +32,8 @@ import logging
 import os
 from contextlib import nullcontext
 
+import lhotse
+
 os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 
 import random
@@ -270,6 +272,13 @@ def get_parser():
         type=str2bool,
         default=True,
         help="perform OOM check on dataloader batches before starting training.",
+    )
+
+    parser.add_argument(
+        "--randomize-cuts",
+        type=str2bool,
+        default=False,
+        help="Randomizes the complete training data before each epoch. Needs a lot of RAM.",
     )
 
     add_model_arguments(parser)
@@ -861,7 +870,7 @@ def filter_short_and_long_utterances(
     return cuts
 
 
-def run(rank, world_size, args):
+def run(rank, world_size, args, train_cuts, valid_cuts):
     """
     Args:
       rank:
@@ -1164,6 +1173,18 @@ def main():
     TtsDataModule.add_arguments(parser)
     args = parser.parse_args()
     args.exp_dir = Path(args.exp_dir)
+
+    if args.randomize_cuts:
+        logging.info("Randomizing cuts...")
+        train_cuts = lhotse.load_manifest(args.manifest_dir / "cuts_train.jsonl.gz")
+        test_cuts = lhotse.load_manifest(args.manifest_dir / "cuts_test.jsonl.gz")
+        dev_cuts = lhotse.load_manifest(args.manifest_dir / "cuts_dev.jsonl.gz")
+        train_cuts = random.sample(train_cuts, len(train_cuts))
+        test_cuts = random.sample(test_cuts, len(test_cuts))
+        dev_cuts = random.sample(dev_cuts, len(dev_cuts))
+        train_cuts.to_file(f"{args.manifest_dir}/cuts_train_rdx.jsonl.gz")
+        test_cuts.to_file(f"{args.manifest_dir}/cuts_test_rdx.jsonl.gz")
+        dev_cuts.to_file(f"{args.manifest_dir}/cuts_dev_rdx.jsonl.gz")
 
     world_size = args.world_size
     assert world_size >= 1
