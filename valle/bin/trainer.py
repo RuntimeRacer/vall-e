@@ -1156,7 +1156,7 @@ def main():
     args.exp_dir = Path(args.exp_dir)
 
     if args.randomize_cuts and not os.path.isfile(f"{args.manifest_dir}/cuts_train_rdx.jsonl.gz"):
-        print("Randomizing cuts...")
+        print("Randomizing cuts. This can take a while, but is only required once...")
         train_cuts = lhotse.load_manifest(args.manifest_dir / "cuts_train.jsonl.gz")
         test_cuts = lhotse.load_manifest(args.manifest_dir / "cuts_test.jsonl.gz")
         dev_cuts = lhotse.load_manifest(args.manifest_dir / "cuts_dev.jsonl.gz")
