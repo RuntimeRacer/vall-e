@@ -870,7 +870,7 @@ def filter_short_and_long_utterances(
     return cuts
 
 
-def run(rank, world_size, args, train_cuts, valid_cuts):
+def run(rank, world_size, args):
     """
     Args:
       rank:
