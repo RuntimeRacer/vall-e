@@ -1174,17 +1174,19 @@ def main():
     args = parser.parse_args()
     args.exp_dir = Path(args.exp_dir)
 
-    if args.randomize_cuts:
-        logging.info("Randomizing cuts...")
-        train_cuts = lhotse.load_manifest(args.manifest_dir / "cuts_train.jsonl.gz")
-        test_cuts = lhotse.load_manifest(args.manifest_dir / "cuts_test.jsonl.gz")
+    if args.randomize_cuts and not os.path.isfile(f"{args.manifest_dir}/cuts_train_rdx.jsonl.gz"):
+        print("Randomizing cuts. This can take a while, but is only required once...")
         dev_cuts = lhotse.load_manifest(args.manifest_dir / "cuts_dev.jsonl.gz")
-        train_cuts = random.sample(train_cuts, len(train_cuts))
-        test_cuts = random.sample(test_cuts, len(test_cuts))
-        dev_cuts = random.sample(dev_cuts, len(dev_cuts))
-        train_cuts.to_file(f"{args.manifest_dir}/cuts_train_rdx.jsonl.gz")
-        test_cuts.to_file(f"{args.manifest_dir}/cuts_test_rdx.jsonl.gz")
+        dev_cuts = dev_cuts.shuffle()
         dev_cuts.to_file(f"{args.manifest_dir}/cuts_dev_rdx.jsonl.gz")
+
+        test_cuts = lhotse.load_manifest(args.manifest_dir / "cuts_test.jsonl.gz")
+        test_cuts = test_cuts.shuffle()
+        test_cuts.to_file(f"{args.manifest_dir}/cuts_test_rdx.jsonl.gz")
+
+        train_cuts = lhotse.load_manifest(args.manifest_dir / "cuts_train.jsonl.gz")
+        train_cuts = train_cuts.shuffle()
+        train_cuts.to_file(f"{args.manifest_dir}/cuts_train_rdx.jsonl.gz")
 
     world_size = args.world_size
     assert world_size >= 1
