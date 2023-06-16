@@ -1155,8 +1155,8 @@ def main():
     args = parser.parse_args()
     args.exp_dir = Path(args.exp_dir)
 
-    if args.randomize_cuts:
-        logging.info("Randomizing cuts...")
+    if args.randomize_cuts and not os.path.isfile(f"{args.manifest_dir}/cuts_train_rdx.jsonl.gz"):
+        print("Randomizing cuts...")
         train_cuts = lhotse.load_manifest(args.manifest_dir / "cuts_train.jsonl.gz")
         test_cuts = lhotse.load_manifest(args.manifest_dir / "cuts_test.jsonl.gz")
         dev_cuts = lhotse.load_manifest(args.manifest_dir / "cuts_dev.jsonl.gz")
