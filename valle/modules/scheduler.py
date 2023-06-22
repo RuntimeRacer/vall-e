@@ -59,7 +59,7 @@ def get_scheduler(params, optimizer):
     if params.scheduler_name.lower() == "eden":
         scheduler = Eden(optimizer, 5000, 4, warmup_batches=params.warmup_steps)
     elif params.scheduler_name.lower() == "edensgdr":
-        scheduler = EdenSGDR(optimizer, 5000, 1, lr_batches_factor=0.5, warmup_batches=params.warmup_steps)
+        scheduler = EdenSGDR(optimizer, 5000, 1, lr_batches_factor=1.0, warmup_batches=params.warmup_steps)
     elif params.scheduler_name.lower() == "noam":
         scheduler = NoamScheduler(
             params.base_lr,
