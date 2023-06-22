@@ -832,6 +832,9 @@ class EdenSGDR(LRScheduler):
               scaling of the lr function according to the amount of batches per epoch, i.e.
               small datasets reach lower LR levels faster than big datasets.
               Factor gets further divided by epoch count so with each epoch we further finetune.
+        lr_batches_multiply: whether to multiply the batches factor with the epoch count.
+              Enabling this will lower the difference of epoch_start_lr and epoch_end_lr with each epoch,
+              effectively reducing the negative effect of warm restarts on an already well fine tuned model.
     """
 
     def __init__(
@@ -839,7 +842,8 @@ class EdenSGDR(LRScheduler):
         optimizer: Optimizer,
         lr_batches: Union[int, float],
         lr_epochs: Union[int, float],
-        lr_batches_factor: Union[int, float] = 0.1,
+        lr_batches_factor: Union[int, float] = 0.2,
+        lr_batches_multiply: bool = True,
         warmup_batches: Union[int, float] = 500.0,
         verbose: bool = False,
     ):
@@ -847,6 +851,7 @@ class EdenSGDR(LRScheduler):
         self.lr_batches = lr_batches
         self.lr_epochs = lr_epochs
         self.lr_batches_factor = lr_batches_factor
+        self.lr_batches_multiply = lr_batches_multiply
         self.warmup_batches = warmup_batches
         self.sgdr_batch_idx = 0
         self.sgdr_batch_factor = lr_batches
@@ -855,7 +860,10 @@ class EdenSGDR(LRScheduler):
         super().step_epoch(epoch)
         self.set_sgdr_idx(self.batch)
         if epoch > 0:
-            self.sgdr_batch_factor = ((self.sgdr_batch_idx / self.epoch) * self.lr_batches_factor) / self.epoch
+            if self.lr_batches_multiply:
+                self.sgdr_batch_factor = ((self.sgdr_batch_idx / self.epoch) * (self.lr_batches_factor * self.epoch)) / self.epoch
+            else:
+                self.sgdr_batch_factor = ((self.sgdr_batch_idx / self.epoch) * self.lr_batches_factor) / self.epoch
 
     def set_sgdr_idx(self, sgdr_batch_idx):
         self.sgdr_batch_idx = sgdr_batch_idx
