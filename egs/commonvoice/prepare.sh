@@ -102,7 +102,8 @@ if [ $stage -le 2 ] && [ $stop_stage -ge 2 ]; then
         --batch-duration 400 \
         --prefix "commonvoice" \
         --src-dir "data/manifests" \
-        --output-dir "${audio_feats_dir}"
+        --output-dir "${audio_feats_dir}" \
+        --convert-to-ascii true
   fi
   touch ${audio_feats_dir}/.commonvoice.tokenize.done
 fi

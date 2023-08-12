@@ -398,7 +398,8 @@ def load_checkpoint_if_available(
         else:
             # switch between 0 and 1/2
             assert params.num_epochs >= params.start_epoch
-            params.batch_idx_train = saved_params["batch_idx_train"]
+            params.batch_idx_train = params.start_batch
+            # params.batch_idx_train = saved_params["batch_idx_train"]
 
         for key in ["optimizer", "grad_scaler", "sampler"]:
             if key in saved_params:
@@ -679,35 +680,12 @@ def train_one_epoch(
 
             # NOTE: We use reduction==sum and loss is computed over utterances
             # in the batch and there is no normalization to it so far.
-
             scaler.scale(loss).backward()
-            if params.batch_idx_train >= params.accumulate_grad_steps:
-                if (
-                    params.batch_idx_train % params.accumulate_grad_steps
-                    == 0
-                ):
-                    if params.optimizer_name not in ["ScaledAdam", "Eve"]:
-                        # Unscales the gradients of optimizer's assigned params in-place
-                        scaler.unscale_(optimizer)
-                        # Since the gradients of optimizer's assigned params are unscaled, clips as usual:
-                        torch.nn.utils.clip_grad_norm_(
-                            model.parameters(), 1.0
-                        )
 
-                    scaler.step(optimizer)
-                    scaler.update()
-                    optimizer.zero_grad()
-
-                    for k in range(params.accumulate_grad_steps):
-                        if isinstance(scheduler, Eden) or isinstance(scheduler, EdenSGDR):
-                            scheduler.step_batch(params.batch_idx_train)
-                        else:
-                            scheduler.step()
-
-            set_batch_count(model, params.batch_idx_train)
         except:  # noqa
             # Save the broken batch
-            logging.warning(f"Hit a broken batch of training data. Cut ID: {batch['utt_id']} Text: {batch['text']} - Skipping...")
+            logging.warning(
+                f"Hit a broken batch of training data. Cut ID: {batch['utt_id']} Text: {batch['text']} - Skipping...")
             display_and_save_batch(batch, params=params)
             # Clean up batch data from Memory and GPU
             del batch["text_tokens"]
@@ -722,7 +700,31 @@ def train_one_epoch(
                 pass
             torch.cuda.empty_cache()
             # Continue training
-            continue
+
+        if params.batch_idx_train >= params.accumulate_grad_steps:
+            if (
+                params.batch_idx_train % params.accumulate_grad_steps
+                == 0
+            ):
+                if params.optimizer_name not in ["ScaledAdam", "Eve"]:
+                    # Unscales the gradients of optimizer's assigned params in-place
+                    scaler.unscale_(optimizer)
+                    # Since the gradients of optimizer's assigned params are unscaled, clips as usual:
+                    torch.nn.utils.clip_grad_norm_(
+                        model.parameters(), 1.0
+                    )
+
+                scaler.step(optimizer)
+                scaler.update()
+                optimizer.zero_grad()
+
+                for k in range(params.accumulate_grad_steps):
+                    if isinstance(scheduler, Eden) or isinstance(scheduler, EdenSGDR):
+                        scheduler.step_batch(params.batch_idx_train)
+                    else:
+                        scheduler.step()
+
+        set_batch_count(model, params.batch_idx_train)
 
         if params.average_period > 0:
             if (
