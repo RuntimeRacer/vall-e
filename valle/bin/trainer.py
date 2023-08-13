@@ -43,6 +43,7 @@ from shutil import copyfile
 from typing import Any, Dict, Optional, Tuple, Union
 
 import torch
+import torch.distributed
 import torch.multiprocessing as mp
 import torch.nn as nn
 from icefall.checkpoint import load_checkpoint, remove_checkpoints
@@ -665,6 +666,10 @@ def train_one_epoch(
         params.batch_idx_train += 1
         batch_size = len(batch["text"])
 
+        if world_size > 1:
+            # Ensure all GPUs enter training for same batch at the same time
+            torch.distributed.barrier()
+
         try:
             with torch.cuda.amp.autocast(dtype=dtype, enabled=enabled):
                 _, loss, loss_info = compute_loss(
@@ -690,7 +695,11 @@ def train_one_epoch(
             # Clean up batch data from Memory and GPU
             torch.cuda.empty_cache()
             # Continue training
-            pass
+            continue
+
+        if world_size > 1:
+            # Ensure all GPUs continue after backpropagation at the same time
+            torch.distributed.barrier()
 
         if params.batch_idx_train >= params.accumulate_grad_steps:
             if (
@@ -729,6 +738,9 @@ def train_one_epoch(
                         model_cur=model,
                         model_avg=model_avg,
                     )
+                if world_size > 1:
+                    # Block other ranks until first process completes
+                    torch.distributed.barrier()
              
         if (
             params.batch_idx_train > 0
@@ -753,6 +765,9 @@ def train_one_epoch(
                     topk=params.keep_last_k,
                     rank=rank,
                 )
+            if world_size > 1:
+                # Block other ranks until first process completes
+                torch.distributed.barrier()
          
         if batch_idx % 100 == 0 and params.dtype in ["float16", "fp16"]:
             # If the grad scale was less than 1, try increasing it.    The _growth_interval
@@ -837,6 +852,11 @@ def train_one_epoch(
                     tb_writer, "train/valid_", params.batch_idx_train
                 )
 
+            if world_size > 1:
+                # Block other ranks until first process completes
+                logging.info("Waiting for validation loss to be computed")
+                torch.distributed.barrier()
+                logging.info("Resuming from wait state")
             model.train()
 
     loss_value = tot_loss["loss"] / tot_loss["frames"]
