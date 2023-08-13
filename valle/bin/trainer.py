@@ -687,15 +687,26 @@ def train_one_epoch(
             # in the batch and there is no normalization to it so far.
             scaler.scale(loss).backward()
 
-        except:  # noqa
+        except Exception as e:  # noqa
             # Save the broken batch
             logging.warning(
                 f"Hit a broken batch of training data. Cut ID: {batch['utt_id']} Text: {batch['text']} - Skipping...")
+            logging.warning(f"Error encountered: {str(e)}")
             display_and_save_batch(batch, params=params)
             # Clean up batch data from Memory and GPU
+            del batch["text_tokens"]
+            del batch["text_tokens_lens"]
+            del batch["audio_features"]
+            del batch["audio_features_lens"]
+            del batch
+            try:
+                del loss
+                del loss_info
+            except UnboundLocalError:
+                pass
             torch.cuda.empty_cache()
             # Continue training
-            continue
+            pass
 
         if world_size > 1:
             # Ensure all GPUs continue after backpropagation at the same time
@@ -830,7 +841,11 @@ def train_one_epoch(
                     )
 
         if params.batch_idx_train % params.valid_interval == 0:
-            # Calculate validation loss in Rank 0
+            if world_size > 1:
+                # Ensure all GPUs start calculating validation loss at the same time
+                torch.distributed.barrier()
+
+            # Calculate validation loss
             model.eval()
             logging.info("Computing validation loss")
             with torch.cuda.amp.autocast(dtype=dtype):
@@ -852,11 +867,6 @@ def train_one_epoch(
                     tb_writer, "train/valid_", params.batch_idx_train
                 )
 
-            if world_size > 1:
-                # Block other ranks until first process completes
-                logging.info("Waiting for validation loss to be computed")
-                torch.distributed.barrier()
-                logging.info("Resuming from wait state")
             model.train()
 
     loss_value = tot_loss["loss"] / tot_loss["frames"]
