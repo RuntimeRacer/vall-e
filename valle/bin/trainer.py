@@ -666,9 +666,7 @@ def train_one_epoch(
         params.batch_idx_train += 1
         batch_size = len(batch["text"])
 
-        if world_size > 1:
-            # Ensure all GPUs enter training for same batch at the same time
-            torch.distributed.barrier()
+        has_oom = False
 
         try:
             with torch.cuda.amp.autocast(dtype=dtype, enabled=enabled):
@@ -687,19 +685,39 @@ def train_one_epoch(
             # in the batch and there is no normalization to it so far.
             scaler.scale(loss).backward()
 
+            # emptying the CUDA cache after the first step can
+            # reduce the chance of OOM
+            if batch_idx == 1:
+                torch.cuda.empty_cache()
+
         except Exception as e:  # noqa
             # Save the broken batch
             logging.warning(
                 f"Hit a broken batch of training data. Cut ID: {batch['utt_id']} Text: {batch['text']} - Skipping...")
             logging.warning(f"Error encountered: {str(e)}")
             display_and_save_batch(batch, params=params)
+            # Mark OOM event true
+            has_oom = True
+            # Save weights at current batch to maybe restart training from here
+            save_checkpoint_with_global_batch_idx(
+                out_dir=params.exp_dir,
+                global_batch_idx=params.batch_idx_train,
+                model=model,
+                model_avg=model_avg,
+                params=params,
+                optimizer=optimizer,
+                scheduler=scheduler,
+                sampler=train_dl.sampler,
+                scaler=scaler,
+                rank=rank,
+            )
+
+        if has_oom:
+            logging.warning(
+                "attempting to recover from OOM in forward/backward pass"
+            )
             # Clean up batch data from Memory and GPU
             torch.cuda.empty_cache()
-        finally:
-            # Continue training
-            if world_size > 1:
-                # Ensure all GPUs continue after backpropagation at the same time
-                torch.distributed.barrier()
 
         if params.batch_idx_train >= params.accumulate_grad_steps:
             if (
@@ -738,9 +756,6 @@ def train_one_epoch(
                         model_cur=model,
                         model_avg=model_avg,
                     )
-                if world_size > 1:
-                    # Block other ranks until first process completes
-                    torch.distributed.barrier()
              
         if (
             params.batch_idx_train > 0
@@ -765,9 +780,6 @@ def train_one_epoch(
                     topk=params.keep_last_k,
                     rank=rank,
                 )
-            if world_size > 1:
-                # Block other ranks until first process completes
-                torch.distributed.barrier()
          
         if batch_idx % 100 == 0 and params.dtype in ["float16", "fp16"]:
             # If the grad scale was less than 1, try increasing it.    The _growth_interval
@@ -830,10 +842,6 @@ def train_one_epoch(
                     )
 
         if params.batch_idx_train % params.valid_interval == 0:
-            if world_size > 1:
-                # Ensure all GPUs start calculating validation loss at the same time
-                torch.distributed.barrier()
-
             # Calculate validation loss
             model.eval()
             logging.info("Computing validation loss")
