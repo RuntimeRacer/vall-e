@@ -688,18 +688,9 @@ def train_one_epoch(
                 f"Hit a broken batch of training data. Cut ID: {batch['utt_id']} Text: {batch['text']} - Skipping...")
             display_and_save_batch(batch, params=params)
             # Clean up batch data from Memory and GPU
-            del batch["text_tokens"]
-            del batch["text_tokens_lens"]
-            del batch["audio_features"]
-            del batch["audio_features_lens"]
-            del batch
-            try:
-                del loss
-                del loss_info
-            except UnboundLocalError:
-                pass
             torch.cuda.empty_cache()
             # Continue training
+            pass
 
         if params.batch_idx_train >= params.accumulate_grad_steps:
             if (
