@@ -32,6 +32,8 @@ import logging
 import os
 from contextlib import nullcontext
 
+import lhotse
+
 os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 
 import random
@@ -41,6 +43,7 @@ from shutil import copyfile
 from typing import Any, Dict, Optional, Tuple, Union
 
 import torch
+import torch.distributed
 import torch.multiprocessing as mp
 import torch.nn as nn
 from icefall.checkpoint import load_checkpoint, remove_checkpoints
@@ -64,7 +67,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from valle.data import TtsDataModule
 from valle.models import add_model_arguments, get_model
-from valle.modules.optim import Eden, Eve, ScaledAdam
+from valle.modules.optim import Eden, EdenSGDR, Eve, ScaledAdam
 from valle.modules.scheduler import get_scheduler
 
 LRSchedulerType = torch.optim.lr_scheduler._LRScheduler
@@ -272,6 +275,13 @@ def get_parser():
         help="perform OOM check on dataloader batches before starting training.",
     )
 
+    parser.add_argument(
+        "--randomize-cuts",
+        type=str2bool,
+        default=False,
+        help="Randomizes the complete training data before each epoch. Needs a lot of RAM.",
+    )
+
     add_model_arguments(parser)
 
     return parser
@@ -389,7 +399,8 @@ def load_checkpoint_if_available(
         else:
             # switch between 0 and 1/2
             assert params.num_epochs >= params.start_epoch
-            params.batch_idx_train = saved_params["batch_idx_train"]
+            params.batch_idx_train = params.start_batch
+            # params.batch_idx_train = saved_params["batch_idx_train"]
 
         for key in ["optimizer", "grad_scaler", "sampler"]:
             if key in saved_params:
@@ -655,6 +666,8 @@ def train_one_epoch(
         params.batch_idx_train += 1
         batch_size = len(batch["text"])
 
+        has_oom = False
+
         try:
             with torch.cuda.amp.autocast(dtype=dtype, enabled=enabled):
                 _, loss, loss_info = compute_loss(
@@ -670,35 +683,66 @@ def train_one_epoch(
 
             # NOTE: We use reduction==sum and loss is computed over utterances
             # in the batch and there is no normalization to it so far.
-
             scaler.scale(loss).backward()
-            if params.batch_idx_train >= params.accumulate_grad_steps:
-                if (
-                    params.batch_idx_train % params.accumulate_grad_steps
-                    == 0
-                ):
-                    if params.optimizer_name not in ["ScaledAdam", "Eve"]:
-                        # Unscales the gradients of optimizer's assigned params in-place
-                        scaler.unscale_(optimizer)
-                        # Since the gradients of optimizer's assigned params are unscaled, clips as usual:
-                        torch.nn.utils.clip_grad_norm_(
-                            model.parameters(), 1.0
-                        )
 
-                    scaler.step(optimizer)
-                    scaler.update()
-                    optimizer.zero_grad()
+            # emptying the CUDA cache after the first step can
+            # reduce the chance of OOM
+            if batch_idx == 1:
+                torch.cuda.empty_cache()
 
-                    for k in range(params.accumulate_grad_steps):
-                        if isinstance(scheduler, Eden):
-                            scheduler.step_batch(params.batch_idx_train)
-                        else:
-                            scheduler.step()
-
-            set_batch_count(model, params.batch_idx_train)
-        except:  # noqa
+        except Exception as e:  # noqa
+            # Save the broken batch
+            logging.warning(
+                f"Hit a broken batch of training data. Cut ID: {batch['utt_id']} Text: {batch['text']} - Skipping...")
+            logging.warning(f"Error encountered: {str(e)}")
             display_and_save_batch(batch, params=params)
-            raise
+            # Mark OOM event true
+            has_oom = True
+            # Save weights at current batch to maybe restart training from here
+            save_checkpoint_with_global_batch_idx(
+                out_dir=params.exp_dir,
+                global_batch_idx=params.batch_idx_train,
+                model=model,
+                model_avg=model_avg,
+                params=params,
+                optimizer=optimizer,
+                scheduler=scheduler,
+                sampler=train_dl.sampler,
+                scaler=scaler,
+                rank=rank,
+            )
+
+        if has_oom:
+            logging.warning(
+                "attempting to recover from OOM in forward/backward pass"
+            )
+            # Clean up batch data from Memory and GPU
+            torch.cuda.empty_cache()
+
+        if params.batch_idx_train >= params.accumulate_grad_steps:
+            if (
+                params.batch_idx_train % params.accumulate_grad_steps
+                == 0
+            ):
+                if params.optimizer_name not in ["ScaledAdam", "Eve"]:
+                    # Unscales the gradients of optimizer's assigned params in-place
+                    scaler.unscale_(optimizer)
+                    # Since the gradients of optimizer's assigned params are unscaled, clips as usual:
+                    torch.nn.utils.clip_grad_norm_(
+                        model.parameters(), 1.0
+                    )
+
+                scaler.step(optimizer)
+                scaler.update()
+                optimizer.zero_grad()
+
+                for k in range(params.accumulate_grad_steps):
+                    if isinstance(scheduler, Eden) or isinstance(scheduler, EdenSGDR):
+                        scheduler.step_batch(params.batch_idx_train)
+                    else:
+                        scheduler.step()
+
+        set_batch_count(model, params.batch_idx_train)
 
         if params.average_period > 0:
             if (
@@ -798,7 +842,7 @@ def train_one_epoch(
                     )
 
         if params.batch_idx_train % params.valid_interval == 0:
-            # Calculate validation loss in Rank 0
+            # Calculate validation loss
             model.eval()
             logging.info("Computing validation loss")
             with torch.cuda.amp.autocast(dtype=dtype):
@@ -1029,7 +1073,7 @@ def run(rank, world_size, args):
         scaler.load_state_dict(checkpoints["grad_scaler"])
 
     for epoch in range(params.start_epoch, params.num_epochs + 1):
-        if isinstance(scheduler, Eden):
+        if isinstance(scheduler, Eden) or isinstance(scheduler, EdenSGDR):
             scheduler.step_epoch(epoch - 1)
 
         fix_random_seed(params.seed + epoch - 1)
@@ -1112,6 +1156,10 @@ def scan_pessimistic_batches_for_oom(
     elif params.dtype in ["float16", "fp16"]:
         dtype = torch.float16
 
+    scaler = GradScaler(
+        enabled=(params.dtype in ["fp16", "float16"]), init_scale=1.0
+    )
+
     for criterion, cuts in batches.items():
         batch = train_dl.dataset[cuts]
         try:
@@ -1122,7 +1170,7 @@ def scan_pessimistic_batches_for_oom(
                     batch=batch,
                     is_training=True,
                 )
-            loss.backward()
+            scaler.scale(loss).backward()
             optimizer.zero_grad()
         except Exception as e:
             if "CUDA out of memory" in str(e):
@@ -1145,6 +1193,20 @@ def main():
     TtsDataModule.add_arguments(parser)
     args = parser.parse_args()
     args.exp_dir = Path(args.exp_dir)
+
+    if args.randomize_cuts and not os.path.isfile(f"{args.manifest_dir}/cuts_train_rdx.jsonl.gz"):
+        print("Randomizing cuts. This can take a while, but is only required once...")
+        dev_cuts = lhotse.load_manifest(args.manifest_dir / "cuts_dev.jsonl.gz")
+        dev_cuts = dev_cuts.shuffle()
+        dev_cuts.to_file(f"{args.manifest_dir}/cuts_dev_rdx.jsonl.gz")
+
+        test_cuts = lhotse.load_manifest(args.manifest_dir / "cuts_test.jsonl.gz")
+        test_cuts = test_cuts.shuffle()
+        test_cuts.to_file(f"{args.manifest_dir}/cuts_test_rdx.jsonl.gz")
+
+        train_cuts = lhotse.load_manifest(args.manifest_dir / "cuts_train.jsonl.gz")
+        train_cuts = train_cuts.shuffle()
+        train_cuts.to_file(f"{args.manifest_dir}/cuts_train_rdx.jsonl.gz")
 
     world_size = args.world_size
     assert world_size >= 1
