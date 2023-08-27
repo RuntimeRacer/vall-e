@@ -27,6 +27,8 @@ Usage example:
 import argparse
 import logging
 import os
+
+from anyascii import anyascii
 from pathlib import Path
 
 os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
@@ -120,6 +122,13 @@ def get_args():
         help="Do continual task.",
     )
 
+    parser.add_argument(
+        "--convert-to-ascii",
+        type=bool,
+        default=False,
+        help="Internally transcribe all texts into ascii using anyascii.",
+    )
+
     return parser.parse_args()
 
 
@@ -175,6 +184,9 @@ def main():
                 assert len(fields) == 4
                 prompt_text, prompt_audio, text, audio_path = fields
                 logging.info(f"synthesize text: {text}")
+                if args.convert_to_ascii:
+                    prompt_text = anyascii(prompt_text)
+                    text = anyascii(text)
                 text_tokens, text_tokens_lens = text_collater(
                     [
                         tokenize_text(
@@ -212,6 +224,9 @@ def main():
 
     for n, text in enumerate(args.text.split("|")):
         logging.info(f"synthesize text: {text}")
+        if args.convert_to_ascii:
+            text_prompts = anyascii(text_prompts)
+            text = anyascii(text)
         text_tokens, text_tokens_lens = text_collater(
             [
                 tokenize_text(

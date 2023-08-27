@@ -406,16 +406,26 @@ class TtsDataModule:
     @lru_cache()
     def train_cuts(self) -> CutSet:
         logging.info("About to get train cuts")
-        return load_manifest_lazy(
-            self.args.manifest_dir / "cuts_train.jsonl.gz"
-        )
+        if self.args.randomize_cuts:
+            logging.info("randomize-cuts active...")
+            return load_manifest_lazy(self.args.manifest_dir / "cuts_train_rdx.jsonl.gz")
+        else:
+            return load_manifest_lazy(self.args.manifest_dir / "cuts_train.jsonl.gz")
 
     @lru_cache()
     def dev_cuts(self) -> CutSet:
         logging.info("About to get dev cuts")
-        return load_manifest_lazy(self.args.manifest_dir / "cuts_dev.jsonl.gz")
+        if self.args.randomize_cuts:
+            logging.info("randomize-cuts active...")
+            return load_manifest_lazy(self.args.manifest_dir / "cuts_dev_rdx.jsonl.gz")
+        else:
+            return load_manifest_lazy(self.args.manifest_dir / "cuts_dev.jsonl.gz")
 
     @lru_cache()
     def test_cuts(self) -> CutSet:
         logging.info("About to get test cuts")
-        return load_manifest_lazy(self.args.manifest_dir / "cuts_test.jsonl.gz")
+        if self.args.randomize_cuts:
+            logging.info("randomize-cuts active...")
+            return load_manifest_lazy(self.args.manifest_dir / "cuts_test_rdx.jsonl.gz")
+        else:
+            return load_manifest_lazy(self.args.manifest_dir / "cuts_test.jsonl.gz")
