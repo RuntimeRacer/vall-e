@@ -310,6 +310,7 @@ class TtsDataModule:
                 max_duration=self.args.max_duration,
                 shuffle=self.args.shuffle,
                 num_buckets=self.args.num_buckets,
+                shuffle_buffer_size=10000,
                 drop_last=True,
             )
         else:
@@ -321,6 +322,7 @@ class TtsDataModule:
                 cuts_train,
                 max_duration=self.args.max_duration,
                 shuffle=self.args.shuffle,
+                drop_last=True,
             )
         logging.info("About to create train dataloader")
 
@@ -364,7 +366,6 @@ class TtsDataModule:
             cuts_valid,
             max_duration=self.args.max_duration,
             shuffle=False,
-            drop_last=True,
         )
         logging.info("About to create dev dataloader")
         valid_dl = DataLoader(
@@ -392,7 +393,6 @@ class TtsDataModule:
             cuts,
             max_duration=self.args.max_duration,
             shuffle=False,
-            drop_last=True,
         )
         logging.debug("About to create test dataloader")
         test_dl = DataLoader(

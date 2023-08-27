@@ -19,7 +19,9 @@ stop_stage=4
 
 dl_dir=$PWD/download
 release=cv-corpus-13.0-2023-03-09
-languages="en de fr cy tt kab ca zh-TW it fa eu es ru tr nl eo zh-CN rw pt zh-HK cs pl uk ja"
+# languages="en de fr cy tt kab ca zh-TW it fa eu es ru tr nl eo zh-CN rw pt zh-HK cs pl uk ja"
+# Use simplified corpus for POC first
+languages="en de fr it fa es ru zh-CN ja"
 
 dataset_parts="train dev test"
 

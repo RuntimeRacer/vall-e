@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import logging
 import re
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional, Pattern, Union
@@ -150,6 +150,7 @@ class TextTokenizer:
         self.separator = separator
 
     def to_list(self, phonemized: str) -> List[str]:
+        phonemized = phonemized.replace(' ', self.separator.word)
         fields = []
         for word in phonemized.split(self.separator.word):
             # "ɐ    m|iː|n?"    ɹ|ɪ|z|ɜː|v; h|ɪ|z.
@@ -345,7 +346,11 @@ class AudioTokenExtractor(FeatureExtractor):
             ]
         # Extract discrete codes from EnCodec
         with torch.no_grad():
-            encoded_frames = self.tokenizer.encode(samples.detach().to(device))
+            try:
+                encoded_frames = self.tokenizer.encode(samples.detach().to(device))
+            except Exception as e:
+                logging.info(f"error {e}")
+                return
         encoded_frames = encoded_frames[0][0]  # [B, n_q, T]
         batch_codes = []
         for b, length in enumerate(lengths):
