@@ -666,8 +666,6 @@ def train_one_epoch(
         params.batch_idx_train += 1
         batch_size = len(batch["text"])
 
-        has_oom = False
-
         try:
             with torch.cuda.amp.autocast(dtype=dtype, enabled=enabled):
                 _, loss, loss_info = compute_loss(
@@ -696,28 +694,8 @@ def train_one_epoch(
                 f"Hit a broken batch of training data. Cut ID: {batch['utt_id']} Text: {batch['text']} - Skipping...")
             logging.warning(f"Error encountered: {str(e)}")
             display_and_save_batch(batch, params=params)
-            # Mark OOM event true
-            has_oom = True
-            # Save weights at current batch to maybe restart training from here
-            save_checkpoint_with_global_batch_idx(
-                out_dir=params.exp_dir,
-                global_batch_idx=params.batch_idx_train,
-                model=model,
-                model_avg=model_avg,
-                params=params,
-                optimizer=optimizer,
-                scheduler=scheduler,
-                sampler=train_dl.sampler,
-                scaler=scaler,
-                rank=rank,
-            )
-
-        if has_oom:
-            logging.warning(
-                "attempting to recover from OOM in forward/backward pass"
-            )
-            # Clean up batch data from Memory and GPU
-            torch.cuda.empty_cache()
+            # After some research it's clear this cannot be recovered, so just abort here
+            raise e
 
         if params.batch_idx_train >= params.accumulate_grad_steps:
             if (
