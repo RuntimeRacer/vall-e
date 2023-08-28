@@ -801,7 +801,7 @@ class VALLE(VALLF):
         y_mask_int = y_mask.type(torch.int64)
 
         text = x
-        enroll_x_lens = text.shape[-1]
+        enroll_x_lens = x_lens.shape[-1]
         codes = y.type(torch.int64) * (1 - y_mask_int.unsqueeze(dim=-1))
 
         y, targets = self.pad_y_eos(
@@ -824,8 +824,8 @@ class VALLE(VALLF):
         if train_stage in [0, 1]:
             x = self.ar_text_embedding(text)
             # Add language embedding
-            x[:, :x_lens, :] += self.ar_language_embedding(prompt_language_id)
-            x[:, x_lens:, :] += self.ar_language_embedding(text_language_id)
+            x[:, :enroll_x_lens, :] += self.ar_language_embedding(prompt_language_id)
+            x[:, enroll_x_lens:, :] += self.ar_language_embedding(text_language_id)
             x = self.ar_text_prenet(x)
             x = self.ar_text_position(x)
 
