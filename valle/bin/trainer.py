@@ -540,7 +540,8 @@ def compute_loss(
             x_lens=text_tokens_lens,
             y=audio_features,
             y_lens=audio_features_lens,
-            language_id=language_id,
+            prompt_language_id=language_id,
+            text_language_id=language_id,
             train_stage=params.train_stage,
         )
 

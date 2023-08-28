@@ -741,8 +741,8 @@ class VALLE(VALLF):
         x_lens: torch.Tensor,
         y: Union[torch.Tensor, PromptedFeatures],
         y_lens: Union[torch.Tensor, PromptedFeatures],
-        prompt_language: str = None,
-        text_language: str = None,
+        prompt_language_id: torch.Tensor,
+        text_language_id: torch.Tensor,
         reduction: str = "sum",
         train_stage: int = 0,
         **kwargs,
@@ -808,12 +808,6 @@ class VALLE(VALLF):
         if train_stage in [0, 1]:
             x = self.ar_text_embedding(text)
             # Add language embedding
-            prompt_language_id = torch.LongTensor(np.array([LANG_ID_DICT[prompt_language]])).to(x.device)
-            if isinstance(text_language, str):
-                text_language_id = torch.LongTensor(np.array([LANG_ID_DICT[text_language]])).to(x.device)
-            elif isinstance(text_language, List):
-                text_language_id = torch.LongTensor(np.array([LANG_ID_DICT[tl] for tl in text_language])).to(
-                    x.device)
             x[:, :enroll_x_lens, :] += self.ar_language_embedding(prompt_language_id)
             x[:, enroll_x_lens:, :] += self.ar_language_embedding(text_language_id)
             x = self.ar_text_prenet(x)
@@ -887,11 +881,6 @@ class VALLE(VALLF):
 
             x = self.nar_text_embedding(text)
             # Add language embedding
-            prompt_language_id = torch.LongTensor(np.array([LANG_ID_DICT[prompt_language]])).to(x.device)
-            if isinstance(text_language, str):
-                text_language_id = torch.LongTensor(np.array([LANG_ID_DICT[text_language]])).to(x.device)
-            elif isinstance(text_language, List):
-                text_language_id = torch.LongTensor(np.array([LANG_ID_DICT[tl] for tl in text_language])).to(x.device)
             x[:, :enroll_x_lens, :] += self.nar_language_embedding(prompt_language_id)
             x[:, enroll_x_lens:, :] += self.nar_language_embedding(text_language_id)
             x = self.nar_text_prenet(x)
