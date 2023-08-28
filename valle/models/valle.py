@@ -801,7 +801,7 @@ class VALLE(VALLF):
         y_mask_int = y_mask.type(torch.int64)
 
         text = x
-        enroll_x_lens = x_lens.shape[-1]
+        enroll_x_lens = x_lens
         codes = y.type(torch.int64) * (1 - y_mask_int.unsqueeze(dim=-1))
 
         y, targets = self.pad_y_eos(
