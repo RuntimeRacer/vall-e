@@ -70,7 +70,7 @@ class VALLF(nn.Module):
         prefix_mode: int = 0,
         share_embedding: bool = True,
         nar_scale_factor: float = 1.0,
-        prepend_bos: bool = True,
+        prepend_bos: bool = False,
         num_quantizers: int = 8,
     ):
         """
@@ -1022,7 +1022,6 @@ class VALLE(VALLF):
         # AR Decoder
         # TODO: Managing decoder steps avoid repetitive computation
         y = prompts[..., 0]
-
         if self.ar_audio_prepend_bos:
             y = F.pad(y, (1, 0), value=NUM_AUDIO_TOKENS + 1)
 
@@ -1041,7 +1040,6 @@ class VALLE(VALLF):
                 (0, y_len),
                 value=True,
             )
-
             y_attn_mask = F.pad(
                 torch.triu(
                     torch.ones(y_len, y_len, dtype=torch.bool), diagonal=1
@@ -1049,7 +1047,6 @@ class VALLE(VALLF):
                 (x_len, 0),
                 value=False,
             )
-
             xy_attn_mask = torch.concat(
                 [x_attn_mask_pad, y_attn_mask], dim=0
             ).to(y.device)
@@ -1059,7 +1056,6 @@ class VALLE(VALLF):
                 mask=xy_attn_mask,
             )
             logits = self.ar_predict_layer(xy_dec[:, -1])
-            # print(logits.size())
             samples = topk_sampling(
                 logits, top_k=top_k, top_p=1.0, temperature=temperature
             )
@@ -1340,6 +1336,5 @@ def topk_sampling(logits, top_k=10, top_p=1.0, temperature=1.0):
     # Top-p/top-k filtering
     logits = top_k_top_p_filtering(logits, top_k=top_k, top_p=top_p)
     # Sample
-    f = F.softmax(logits, dim=-1)
-    token = torch.multinomial(f, num_samples=1)
+    token = torch.multinomial(F.softmax(logits, dim=-1), num_samples=1)
     return token
