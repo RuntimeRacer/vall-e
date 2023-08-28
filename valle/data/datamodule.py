@@ -310,7 +310,6 @@ class TtsDataModule:
                 max_duration=self.args.max_duration,
                 shuffle=self.args.shuffle,
                 num_buckets=self.args.num_buckets,
-                shuffle_buffer_size=10000,
                 drop_last=True,
             )
         else:
