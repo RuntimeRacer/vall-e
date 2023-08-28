@@ -105,7 +105,7 @@ class SpeechSynthesisDataset(torch.utils.data.Dataset):
             [cut.supervisions[0].custom["tokens"]["text"] for cut in cuts]
         )
 
-        language_id = [LAN_ID_DICT[cut.supervisions[0].language] for cut in cuts]
+        language_id = [LANG_ID_DICT[cut.supervisions[0].language] for cut in cuts]
 
         return {
             "utt_id": [cut.id for cut in cuts],
