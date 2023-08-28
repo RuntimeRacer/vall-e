@@ -70,7 +70,7 @@ class VALLF(nn.Module):
         prefix_mode: int = 0,
         share_embedding: bool = True,
         nar_scale_factor: float = 1.0,
-        prepend_bos: bool = False,
+        prepend_bos: bool = True,
         num_quantizers: int = 8,
     ):
         """
@@ -843,6 +843,10 @@ class VALLE(VALLF):
                 value=False,
             )
             xy_attn_mask = torch.concat([x_attn_mask, y_attn_mask], dim=0)
+
+            print(x_mask.shape)
+            print(y_mask.shape)
+            print(ar_xy_padding_mask.shape)
 
             # merge key padding and attention masks
             bsz, src_len = x.shape[0], x_len + y_len
