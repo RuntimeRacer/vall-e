@@ -71,7 +71,6 @@ class SpeechSynthesisDataset(torch.utils.data.Dataset):
         self.text_token_collater = text_token_collater
         self.cut_transforms = ifnone(cut_transforms, [])
         self.feature_input_strategy = feature_input_strategy
-        self.target_input_strategy = PrecomputedFeatures()
 
         if feature_transforms is None:
             feature_transforms = []
@@ -96,16 +95,12 @@ class SpeechSynthesisDataset(torch.utils.data.Dataset):
 
         audio_features, audio_features_lens = self.feature_input_strategy(cuts)
 
-        target_audio_features, target_audio_features_lens = self.target_input_strategy(cuts)
-
         for transform in self.feature_transforms:
             audio_features = transform(audio_features)
 
         text_tokens, text_tokens_lens = self.text_token_collater(
             [cut.supervisions[0].custom["tokens"]["text"] for cut in cuts]
         )
-
-        language_id = [LANG_ID_DICT[cut.supervisions[0].language] for cut in cuts]
 
         return {
             "utt_id": [cut.id for cut in cuts],
@@ -116,9 +111,7 @@ class SpeechSynthesisDataset(torch.utils.data.Dataset):
             "audio_features_lens": audio_features_lens,
             "text_tokens": text_tokens,
             "text_tokens_lens": text_tokens_lens,
-            "t_audio_features": target_audio_features,
-            "t_audio_features_lens": target_audio_features_lens,
-            "language": torch.IntTensor(language_id).unsqueeze(-1)
+            "language": [cut.supervisions[0].language for cut in cuts]
         }
 
 

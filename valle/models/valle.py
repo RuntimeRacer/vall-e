@@ -15,6 +15,7 @@
 import random
 from typing import Dict, Iterator, List, Tuple, Union
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -69,7 +70,7 @@ class VALLF(nn.Module):
         prefix_mode: int = 0,
         share_embedding: bool = True,
         nar_scale_factor: float = 1.0,
-        prepend_bos: bool = False,
+        prepend_bos: bool = True,
         num_quantizers: int = 8,
     ):
         """
@@ -154,14 +155,6 @@ class VALLF(nn.Module):
         )
         self.ar_predict_layer = nn.Linear(
             d_model, NUM_AUDIO_TOKENS + 1, bias=False
-        )
-
-        self.ar_accuracy_metric = MulticlassAccuracy(
-            NUM_AUDIO_TOKENS + 1,
-            top_k=10,
-            average="micro",
-            multidim_average="global",
-            ignore_index=NUM_AUDIO_TOKENS,
         )
 
         self.rng = random.Random(0)
@@ -272,27 +265,6 @@ class VALLF(nn.Module):
                         j
                     ].weight = self.nar_audio_embeddings[j + 2].weight
 
-            self.nar_accuracy_metric = MulticlassAccuracy(
-                NUM_AUDIO_TOKENS + 1,
-                top_k=10,
-                average="micro",
-                multidim_average="global",
-                ignore_index=NUM_AUDIO_TOKENS,
-            )
-
-    #     self.apply(self._init_weights)
-
-    # def _init_weights(self, module):
-    #     if isinstance(module, (nn.Linear)):
-    #         module.weight.data.normal_(mean=0.0, std=0.02)
-    #         if isinstance(module, nn.Linear) and module.bias is not None:
-    #             module.bias.data.zero_()
-    #     elif isinstance(module, nn.LayerNorm):
-    #         module.bias.data.zero_()
-    #         module.weight.data.fill_(1.0)
-    #     elif isinstance(module, nn.Embedding):
-    #         module.weight.data.normal_(mean=0.0, std=1.0)
-
     def stage_parameters(self, stage: int = 1) -> Iterator[nn.Parameter]:
         assert stage > 0
         if stage == 1:
@@ -333,17 +305,6 @@ class VALLF(nn.Module):
             )
 
         return targets[:, :-1], targets[:, 1:]
-
-    def make_xy_target(self, y, y_mask_int, eos_id, text):
-        targets = F.pad(y, (0, 1), value=0) + eos_id * F.pad(
-            y_mask_int, (0, 1), value=1
-        )
-
-        text = F.pad(text, (0, 1), value=0)
-
-        xy = torch.concat([text[:, 1:], targets], dim=1)
-
-        return xy[:, 1:]
 
     def _prepare_prompts(self, y, y_lens, codes, nar_stage, y_prompts_codes):
         # 5.1 For the NAR acoustic prompt tokens, we select a random segment waveform of 3 seconds
@@ -404,55 +365,6 @@ class VALLF(nn.Module):
             raise ValueError
 
         return y_emb, prefix_len
-
-    def iar_prompt(self, y, y_len):
-
-        prefix_len = min(225, int(0.25 * y_len))
-        prefix_len = 0
-
-        start = self.rng.randint(0, y_len - prefix_len)
-        y_prompts = torch.clone(y[:, start: start + prefix_len])
-
-        print(y_prompts.size())
-
-        # prefix at begining
-        # int_low = (0.25 * y_lens.min()).type(torch.int64).item()
-        # prefix_len = torch.randint(int_low, int_low * 2, size=()).item()
-        # prefix_len = min(prefix_len, 225)  # 24000/320 * 3s = 225 frames
-
-        # y_prompts = y[:, :prefix_len].unsqueeze(-1)
-        # y_emb = self.ar_audio_embedding(y[:, prefix_len:])
-
-        # y_prompts = y_prompts_codes
-        # y_prompts = y_prompts_codes.unsqueeze(-1)
-
-        return y_prompts, prefix_len
-
-    def ar_prompt(self, y, y_lens):
-
-        prefix_len = min(225, int(0.25 * y_lens.min().item()))
-
-        y_prompts_codes = []
-        for b in range(y.shape[0]):
-            start = self.rng.randint(0, y_lens[b].item() - prefix_len)
-            y_prompts_codes.append(
-                torch.clone(y[b, start: start + prefix_len])
-            )
-
-        y_prompts_codes = torch.stack(y_prompts_codes, dim=0)
-
-        # prefix at begining
-        # int_low = (0.25 * y_lens.min()).type(torch.int64).item()
-        # prefix_len = torch.randint(int_low, int_low * 2, size=()).item()
-        # prefix_len = min(prefix_len, 225)  # 24000/320 * 3s = 225 frames
-
-        # y_prompts = y[:, :prefix_len].unsqueeze(-1)
-        # y_emb = self.ar_audio_embedding(y[:, prefix_len:])
-
-        y_prompts = y_prompts_codes
-        # y_prompts = y_prompts_codes.unsqueeze(-1)
-
-        return y_prompts, prefix_len
 
     def forward(
         self,
@@ -820,14 +732,8 @@ class VALLE(VALLF):
             nar_scale_factor=nar_scale_factor,
             **kwargs,
         )
-
-        self.lang_embedding = TokenEmbedding(d_model, len(LANG_ID_DICT) + 1)
-
-    def _create_mask(self, l, device):
-        """1 is valid region and 0 is invalid."""
-        seq = torch.arange(max(l), device=device).unsqueeze(0)  # (1 t)
-        stop = torch.tensor(l, device=device).unsqueeze(1)  # (b 1)
-        return (seq < stop).float()  # (b t)
+        self.ar_language_embedding = TokenEmbedding(d_model, len(LANG_ID_DICT))
+        self.nar_language_embedding = TokenEmbedding(d_model, len(LANG_ID_DICT))
 
     def forward(
         self,
@@ -835,7 +741,8 @@ class VALLE(VALLF):
         x_lens: torch.Tensor,
         y: Union[torch.Tensor, PromptedFeatures],
         y_lens: Union[torch.Tensor, PromptedFeatures],
-        language_id: torch.Tensor,
+        prompt_language: str = None,
+        text_language: str = None,
         reduction: str = "sum",
         train_stage: int = 0,
         **kwargs,
@@ -878,6 +785,7 @@ class VALLE(VALLF):
         y_mask_int = y_mask.type(torch.int64)
 
         text = x
+        enroll_x_lens = text.shape[-1]
         codes = y.type(torch.int64) * (1 - y_mask_int.unsqueeze(dim=-1))
 
         y, targets = self.pad_y_eos(
@@ -899,6 +807,15 @@ class VALLE(VALLF):
         # AR Decoder
         if train_stage in [0, 1]:
             x = self.ar_text_embedding(text)
+            # Add language embedding
+            prompt_language_id = torch.LongTensor(np.array([LANG_ID_DICT[prompt_language]])).to(x.device)
+            if isinstance(text_language, str):
+                text_language_id = torch.LongTensor(np.array([LANG_ID_DICT[text_language]])).to(x.device)
+            elif isinstance(text_language, List):
+                text_language_id = torch.LongTensor(np.array([LANG_ID_DICT[tl] for tl in text_language])).to(
+                    x.device)
+            x[:, :enroll_x_lens, :] += self.ar_language_embedding(prompt_language_id)
+            x[:, enroll_x_lens:, :] += self.ar_language_embedding(text_language_id)
             x = self.ar_text_prenet(x)
             x = self.ar_text_position(x)
 
@@ -933,10 +850,7 @@ class VALLE(VALLF):
             new_attn_mask.masked_fill_(xy_attn_mask, float("-inf"))
             xy_attn_mask = new_attn_mask
 
-            language_id_exp = self.lang_embedding(language_id)
-
             y_emb = self.ar_audio_embedding(y)
-            y_emb = y_emb + language_id_exp
             y_emb = self.ar_audio_prenet(y_emb)
             y_pos = self.ar_audio_position(y_emb)
 
@@ -972,6 +886,14 @@ class VALLE(VALLF):
             )[0]
 
             x = self.nar_text_embedding(text)
+            # Add language embedding
+            prompt_language_id = torch.LongTensor(np.array([LANG_ID_DICT[prompt_language]])).to(x.device)
+            if isinstance(text_language, str):
+                text_language_id = torch.LongTensor(np.array([LANG_ID_DICT[text_language]])).to(x.device)
+            elif isinstance(text_language, List):
+                text_language_id = torch.LongTensor(np.array([LANG_ID_DICT[tl] for tl in text_language])).to(x.device)
+            x[:, :enroll_x_lens, :] += self.nar_language_embedding(prompt_language_id)
+            x[:, enroll_x_lens:, :] += self.nar_language_embedding(text_language_id)
             x = self.nar_text_prenet(x)
             x = self.nar_text_position(x)
 
@@ -1041,9 +963,10 @@ class VALLE(VALLF):
         x_lens: torch.Tensor,
         y: torch.Tensor,
         enroll_x_lens: torch.Tensor,
-        language_id: torch.Tensor,
         top_k: int = -100,
         temperature: float = 1.0,
+        prompt_language: str = None,
+        text_language: str = None,
     ) -> torch.Tensor:
         """
         Args:
@@ -1071,6 +994,14 @@ class VALLE(VALLF):
         # NOTE: x has been padded in TextTokenCollater
         text = x
         x = self.ar_text_embedding(text)
+        # Add language embedding
+        prompt_language_id = torch.LongTensor(np.array([LANG_ID_DICT[prompt_language]])).to(x.device)
+        if isinstance(text_language, str):
+            text_language_id = torch.LongTensor(np.array([LANG_ID_DICT[text_language]])).to(x.device)
+        elif isinstance(text_language, List):
+            text_language_id = torch.LongTensor(np.array([LANG_ID_DICT[tl] for tl in text_language])).to(x.device)
+        x[:, :enroll_x_lens, :] += self.ar_language_embedding(prompt_language_id)
+        x[:, enroll_x_lens:, :] += self.ar_language_embedding(text_language_id)
         x = self.ar_text_prenet(x)
         x = self.ar_text_position(x)
 
@@ -1089,20 +1020,15 @@ class VALLE(VALLF):
             y = F.pad(y, (1, 0), value=NUM_AUDIO_TOKENS + 1)
 
         x_len = x_lens.max()
-        x_attn_mask = torch.zeros((x_len, x_len), dtype=torch.bool, device=x.device)
+        x_attn_mask = torch.zeros((x_len, x_len), dtype=torch.bool)
 
         while True:
             y_emb = self.ar_audio_embedding(y)
-            y_len = y.shape[1]
-
-            # adding language id to audio token embedding
-            language_id_exp = self.lang_embedding(language_id)
-            y_emb = y_emb + language_id_exp
-
             y_emb = self.ar_audio_prenet(y_emb)
             y_pos = self.ar_audio_position(y_emb)
             xy_pos = torch.concat([x, y_pos], dim=1)
 
+            y_len = y.shape[1]
             x_attn_mask_pad = F.pad(
                 x_attn_mask,
                 (0, y_len),
@@ -1111,7 +1037,7 @@ class VALLE(VALLF):
 
             y_attn_mask = F.pad(
                 torch.triu(
-                    torch.ones(y_len, y_len, dtype=torch.bool, device=x.device), diagonal=1,
+                    torch.ones(y_len, y_len, dtype=torch.bool), diagonal=1
                 ),
                 (x_len, 0),
                 value=False,
@@ -1170,6 +1096,14 @@ class VALLE(VALLF):
             assert text.shape[0] == 1
 
         x = self.nar_text_embedding(text)
+        # Add language embedding
+        prompt_language_id = torch.LongTensor(np.array([LANG_ID_DICT[prompt_language]])).to(x.device)
+        if isinstance(text_language, str):
+            text_language_id = torch.LongTensor(np.array([LANG_ID_DICT[text_language]])).to(x.device)
+        elif isinstance(text_language, List):
+            text_language_id = torch.LongTensor(np.array([LANG_ID_DICT[tl] for tl in text_language])).to(x.device)
+        x[:, :enroll_x_lens, :] += self.nar_language_embedding(prompt_language_id)
+        x[:, enroll_x_lens:, :] += self.nar_language_embedding(text_language_id)
         x = self.nar_text_prenet(x)
         x = self.nar_text_position(x)
 

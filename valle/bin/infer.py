@@ -73,9 +73,16 @@ def get_args():
 
     parser.add_argument(
         "--lang",
-        type=int,
-        default=1,
+        type=str,
+        default="en",
         help="language",
+    )
+
+    parser.add_argument(
+        "--accent",
+        type=str,
+        default="en",
+        help="speaker accent",
     )
 
     # model
@@ -137,19 +144,6 @@ def get_args():
     )
 
     return parser.parse_args()
-
-
-LANG_ID_DICT = {
-    'en': 1,  # English
-    'de': 2,  # German
-    'fr': 3,  # French
-    'it': 4,  # Italian
-    'fa': 5,  # Persian
-    'es': 6,  # Spanish
-    'ru': 7,  # Russian
-    'zh-CN': 8,  # Chinese
-    'ja': 9  # Japanese
-}
 
 
 @torch.no_grad()
@@ -237,7 +231,8 @@ def main():
                 text_tokens_lens.to(device),
                 audio_prompts,
                 enroll_x_lens=enroll_x_lens,
-                language_id=torch.IntTensor(language_id).to(device),
+                prompt_language=args.accent,
+                text_language=args.lang,
                 top_k=args.top_k,
                 temperature=args.temperature,
             )
