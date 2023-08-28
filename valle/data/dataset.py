@@ -27,6 +27,8 @@ from lhotse.dataset.collation import collate_audio
 from lhotse.dataset.input_strategies import BatchIO, PrecomputedFeatures
 from lhotse.utils import ifnone
 
+import numpy as np
+
 from valle.data.collation import TextTokenCollater
 
 LANG_ID_DICT = {
