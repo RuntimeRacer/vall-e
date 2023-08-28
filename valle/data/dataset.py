@@ -27,8 +27,6 @@ from lhotse.dataset.collation import collate_audio
 from lhotse.dataset.input_strategies import BatchIO, PrecomputedFeatures
 from lhotse.utils import ifnone
 
-import numpy as np
-
 from valle.data.collation import TextTokenCollater
 
 LANG_ID_DICT = {
@@ -115,7 +113,7 @@ class SpeechSynthesisDataset(torch.utils.data.Dataset):
             "audio_features_lens": audio_features_lens,
             "text_tokens": text_tokens,
             "text_tokens_lens": text_tokens_lens,
-            "language": torch.IntTensor(np.array(language_id))
+            "language": torch.IntTensor(language_id).unsqueeze(-1)
         }
 
 
