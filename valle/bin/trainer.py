@@ -694,7 +694,7 @@ def train_one_epoch(
         except Exception as e:  # noqa
             # Save the broken batch
             logging.warning(
-                f"Hit a broken batch of training data. Cut ID: {batch['utt_id']} Text: {batch['text']} - Skipping...")
+                f"Hit a broken batch of training data. Cut ID: {batch['utt_id']} Text: {batch['text']} Languages: {batch['languages']} - Skipping...")
             logging.warning(f"Error encountered: {str(e)}")
             display_and_save_batch(batch, params=params)
             # After some research it's clear this cannot be recovered, so just abort here
