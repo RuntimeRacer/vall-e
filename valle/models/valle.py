@@ -824,8 +824,8 @@ class VALLE(VALLF):
         if train_stage in [0, 1]:
             x = self.ar_text_embedding(text)
             # Add language embedding
-            x[:, :enroll_x_lens, :] += self.ar_language_embedding(prompt_language_id)
-            x[:, enroll_x_lens:, :] += self.ar_language_embedding(text_language_id)
+            x[:, :x_lens, :] += self.ar_language_embedding(prompt_language_id)
+            x[:, x_lens:, :] += self.ar_language_embedding(text_language_id)
             x = self.ar_text_prenet(x)
             x = self.ar_text_position(x)
 
