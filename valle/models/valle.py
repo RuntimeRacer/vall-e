@@ -70,7 +70,7 @@ class VALLF(nn.Module):
         prefix_mode: int = 0,
         share_embedding: bool = True,
         nar_scale_factor: float = 1.0,
-        prepend_bos: bool = True,
+        prepend_bos: bool = False,
         num_quantizers: int = 8,
     ):
         """
