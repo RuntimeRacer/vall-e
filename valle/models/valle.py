@@ -157,6 +157,14 @@ class VALLF(nn.Module):
             d_model, NUM_AUDIO_TOKENS + 1, bias=False
         )
 
+        self.ar_accuracy_metric = MulticlassAccuracy(
+            NUM_AUDIO_TOKENS + 1,
+            top_k=10,
+            average="micro",
+            multidim_average="global",
+            ignore_index=NUM_AUDIO_TOKENS,
+        )
+
         self.rng = random.Random(0)
         self.num_heads = nhead
         self.prefix_mode = prefix_mode
@@ -264,6 +272,14 @@ class VALLF(nn.Module):
                     self.nar_predict_layers[
                         j
                     ].weight = self.nar_audio_embeddings[j + 2].weight
+
+            self.nar_accuracy_metric = MulticlassAccuracy(
+                NUM_AUDIO_TOKENS + 1,
+                top_k=10,
+                average="micro",
+                multidim_average="global",
+                ignore_index=NUM_AUDIO_TOKENS,
+            )
 
     def stage_parameters(self, stage: int = 1) -> Iterator[nn.Parameter]:
         assert stage > 0
