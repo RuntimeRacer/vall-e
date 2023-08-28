@@ -71,20 +71,6 @@ def get_args():
         help="Text to be synthesized.",
     )
 
-    parser.add_argument(
-        "--lang",
-        type=str,
-        default="en",
-        help="language",
-    )
-
-    parser.add_argument(
-        "--accent",
-        type=str,
-        default="en",
-        help="speaker accent",
-    )
-
     # model
     add_model_arguments(parser)
 
@@ -143,6 +129,20 @@ def get_args():
         help="Internally transcribe all texts into ascii using anyascii.",
     )
 
+    parser.add_argument(
+        "--prompt-language",
+        type=str,
+        default='en',
+        help="The language of text prompt."
+    )
+
+    parser.add_argument(
+        "--text-language",
+        type=str,
+        default='en',
+        help="The language of text to synthesize."
+    )
+
     return parser.parse_args()
 
 
@@ -153,8 +153,6 @@ def main():
     text_tokenizer = TextTokenizer(backend="espeak")
     text_collater = get_text_token_collater(args.text_tokens)
     audio_tokenizer = AudioTokenizer()
-    language_id = [args.lang]  # must []
-    print(f"lang={language_id}")
 
     device = torch.device("cpu")
     if torch.cuda.is_available():
@@ -193,6 +191,45 @@ def main():
         audio_prompts = torch.concat(audio_prompts, dim=-1).transpose(2, 1)
         audio_prompts = audio_prompts.to(device)
 
+    if os.path.isfile(args.text):  # for demos
+        # https://github.com/lifeiteng/lifeiteng.github.com/blob/main/valle/prepare.py
+        with open(args.text) as f:
+            for line in f:
+                fields = line.strip().split("\t")
+                assert len(fields) == 4
+                prompt_text, prompt_audio, text, audio_path = fields
+                logging.info(f"synthesize text: {text}")
+                text_tokens, text_tokens_lens = text_collater(
+                    [
+                        text_tokenizer.tokenize(text=f"{prompt_text}{text}".strip())
+                    ]
+                )
+                _, enroll_x_lens = text_collater(
+                    [
+                        text_tokenizer.tokenize(text=f"{prompt_text}".strip())
+                    ]
+                )
+
+                audio_prompts = tokenize_audio(audio_tokenizer, prompt_audio)
+                audio_prompts = audio_prompts[0][0].transpose(2, 1).to(device)
+
+                # synthesis
+                encoded_frames = model.inference(
+                    text_tokens.to(device),
+                    text_tokens_lens.to(device),
+                    audio_prompts,
+                    enroll_x_lens=enroll_x_lens,
+                    top_k=args.top_k,
+                    temperature=args.temperature,
+                )
+
+                samples = audio_tokenizer.decode(
+                    [(encoded_frames.transpose(2, 1), None)]
+                )
+                # store
+                torchaudio.save(audio_path, samples[0].cpu(), 24000)
+        return
+
     for n, text in enumerate(args.text.split("|")):
         logging.info(f"synthesize text: {text}")
 
@@ -202,9 +239,7 @@ def main():
 
         text_tokens, text_tokens_lens = text_collater(
             [
-                tokenize_text(
-                    text_tokenizer, text=f"{text}".strip()
-                )
+                text_tokenizer.tokenize(text=f"{text_prompts}{text}".strip())
             ]
         )
 
@@ -221,9 +256,7 @@ def main():
             if text_prompts:
                 _, enroll_x_lens = text_collater(
                     [
-                        tokenize_text(
-                            text_tokenizer, text=f"{text_prompts}".strip()
-                        )
+                        text_tokenizer.tokenize(text=f"{text_prompts}".strip())
                     ]
                 )
             encoded_frames = model.inference(
@@ -231,10 +264,10 @@ def main():
                 text_tokens_lens.to(device),
                 audio_prompts,
                 enroll_x_lens=enroll_x_lens,
-                prompt_language=args.accent,
-                text_language=args.lang,
                 top_k=args.top_k,
                 temperature=args.temperature,
+                prompt_language=args.prompt_language,
+                text_language=args.text_language,
             )
 
         if audio_prompts != []:
