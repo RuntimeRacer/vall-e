@@ -808,7 +808,6 @@ class VALLE(VALLF):
         )
 
         x_len = x_lens.max()
-        enroll_x_len = x_len.shape[-1]
 
         metrics = {}
         total_loss = 0.0
@@ -824,8 +823,8 @@ class VALLE(VALLF):
         if train_stage in [0, 1]:
             x = self.ar_text_embedding(text)
             # Add language embedding
-            x[:, :enroll_x_len, :] += self.ar_language_embedding(prompt_language_id)
-            x[:, enroll_x_len:, :] += self.ar_language_embedding(text_language_id)
+            x[:, :x_len, :] += self.ar_language_embedding(prompt_language_id)
+            x[:, x_len:, :] += self.ar_language_embedding(text_language_id)
             x = self.ar_text_prenet(x)
             x = self.ar_text_position(x)
 
@@ -897,8 +896,8 @@ class VALLE(VALLF):
 
             x = self.nar_text_embedding(text)
             # Add language embedding
-            x[:, :enroll_x_len, :] += self.nar_language_embedding(prompt_language_id)
-            x[:, enroll_x_len:, :] += self.nar_language_embedding(text_language_id)
+            x[:, :x_len, :] += self.nar_language_embedding(prompt_language_id)
+            x[:, x_len:, :] += self.nar_language_embedding(text_language_id)
             x = self.nar_text_prenet(x)
             x = self.nar_text_position(x)
 
