@@ -417,7 +417,7 @@ class VALLF(nn.Module):
             y_prompts_codes, y = y.data
             prompts_len, y_lens = y_lens.data
             assert prompts_len.min() == prompts_len.max()
-            #assert self.prefix_mode == 4
+            assert self.prefix_mode == 4
             y_prompts_codes = y_prompts_codes.type(torch.int64)
 
         assert y.ndim == 3, y.shape
@@ -783,7 +783,6 @@ class VALLE(VALLF):
         assert x_lens.ndim == 1, x_lens.shape
 
         y_prompts_codes = None
-
         if isinstance(y, PromptedFeatures):
             y_prompts_codes, y = y.data
             prompts_len, y_lens = y_lens.data
@@ -833,9 +832,8 @@ class VALLE(VALLF):
             x_attn_mask = F.pad(
                 torch.zeros((x_len, x_len), dtype=torch.bool, device=x.device),
                 (0, y_len),
-                value=False,
+                value=True,
             )
-
             y_attn_mask = F.pad(
                 torch.triu(
                     torch.ones(y_len, y_len, dtype=torch.bool, device=x.device),
@@ -871,7 +869,6 @@ class VALLE(VALLF):
                 # src_key_padding_mask=xy_padding_mask,
                 # is_causal=True,
             )
-
             logits = self.ar_predict_layer(xy_dec[:, x_len:]).permute(0, 2, 1)
             # loss
             total_loss = F.cross_entropy(logits, targets, reduction=reduction)
