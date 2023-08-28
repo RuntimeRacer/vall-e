@@ -848,7 +848,7 @@ class VALLE(VALLF):
             bsz, src_len = x.shape[0], x_len + y_len
 
             print(ar_xy_padding_mask.shape)
-            print(bsz.shape)
+            print(bsz)
             print(src_len)
 
             _xy_padding_mask = (
