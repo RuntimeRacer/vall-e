@@ -150,7 +150,6 @@ class TextTokenizer:
         self.separator = separator
 
     def to_list(self, phonemized: str) -> List[str]:
-        phonemized = phonemized.replace(' ', self.separator.word)
         fields = []
         for word in phonemized.split(self.separator.word):
             # "ɐ    m|iː|n?"    ɹ|ɪ|z|ɜː|v; h|ɪ|z.
