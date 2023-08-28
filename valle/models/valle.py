@@ -844,12 +844,13 @@ class VALLE(VALLF):
             )
             xy_attn_mask = torch.concat([x_attn_mask, y_attn_mask], dim=0)
 
-            print(x_mask.shape)
-            print(y_mask.shape)
-            print(ar_xy_padding_mask.shape)
-
             # merge key padding and attention masks
             bsz, src_len = x.shape[0], x_len + y_len
+
+            print(ar_xy_padding_mask.shape)
+            print(bsz.shape)
+            print(src_len)
+
             _xy_padding_mask = (
                 ar_xy_padding_mask.view(bsz, 1, 1, src_len)
                 .expand(-1, self.num_heads, -1, -1)
