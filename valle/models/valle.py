@@ -853,9 +853,9 @@ class VALLE(VALLF):
             # merge key padding and attention masks
             bsz, src_len = x.shape[0], x_len + y_len
 
-            print(f"ar_xy_padding_mask.shape {x.shape}")
-            print(f"bsz {x.shape}")
-            print(f"src_len {x.shape}")
+            print(f"ar_xy_padding_mask.shape {ar_xy_padding_mask.shape}")
+            print(f"bsz {bsz}")
+            print(f"src_len {src_len}")
 
             _xy_padding_mask = (
                 ar_xy_padding_mask.view(bsz, 1, 1, src_len)
