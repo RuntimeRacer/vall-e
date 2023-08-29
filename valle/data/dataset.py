@@ -32,15 +32,15 @@ import numpy as np
 from valle.data.collation import TextTokenCollater
 
 LANG_ID_DICT = {
-    'en': 1,  # English
-    'de': 2,  # German
-    'fr': 3,  # French
-    'it': 4,  # Italian
-    'fa': 5,  # Persian
-    'es': 6,  # Spanish
-    'ru': 7,  # Russian
-    'zh-CN': 8,  # Chinese
-    'ja': 9  # Japanese
+    'en': 0,  # English
+    'de': 1,  # German
+    'fr': 2,  # French
+    'it': 3,  # Italian
+    'fa': 4,  # Persian
+    'es': 5,  # Spanish
+    'ru': 6,  # Russian
+    'zh-CN': 7,  # Chinese
+    'ja': 8  # Japanese
 }
 
 class SpeechSynthesisDataset(torch.utils.data.Dataset):
