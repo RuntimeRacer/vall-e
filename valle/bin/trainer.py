@@ -1175,6 +1175,9 @@ def main():
     args = parser.parse_args()
     args.exp_dir = Path(args.exp_dir)
 
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+
     if args.randomize_cuts and not os.path.isfile(f"{args.manifest_dir}/cuts_train_rdx.jsonl.gz"):
         print("Randomizing cuts. This can take a while, but is only required once...")
         dev_cuts = lhotse.load_manifest(args.manifest_dir / "cuts_dev.jsonl.gz")
