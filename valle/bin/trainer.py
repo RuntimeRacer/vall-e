@@ -532,7 +532,7 @@ def compute_loss(
     audio_features_lens = batch["audio_features_lens"].to(device)
     assert audio_features.ndim == 3
 
-    languages = batch["languages"].to(device)
+    language_ids = batch['languages'].to(device)
 
     with torch.set_grad_enabled(is_training):
         predicts, loss, metrics = model(
@@ -540,8 +540,8 @@ def compute_loss(
             x_lens=text_tokens_lens,
             y=audio_features,
             y_lens=audio_features_lens,
-            languages=languages,
             train_stage=params.train_stage,
+            languages=language_ids
         )
 
     assert loss.requires_grad == is_training
