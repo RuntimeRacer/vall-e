@@ -819,12 +819,17 @@ class VALLE(VALLF):
         # AR Decoder
         if train_stage in [0, 1]:
             x = self.ar_text_embedding(text)
+            print(f"x.shape: {x.shape}")
             # Add language embedding language IDs is passed
             if kwargs.__contains__('languages'):
                 language_ids = kwargs.get('languages')
                 language_embed = self.ar_language_embedding(language_ids)
+                print(f"language_embed.shape - initial: {language_embed.shape}")
                 language_embed = language_embed.unsqueeze(1)
+                print(f"language_embed.shape - unsqueezed: {language_embed.shape}")
                 x += language_embed
+                print(f"x.shape - combined {x.shape}")
+
             x = self.ar_text_prenet(x)
             x = self.ar_text_position(x)
 
@@ -848,9 +853,9 @@ class VALLE(VALLF):
             # merge key padding and attention masks
             bsz, src_len = x.shape[0], x_len + y_len
 
-            print(ar_xy_padding_mask.shape)
-            print(bsz)
-            print(src_len)
+            print(f"ar_xy_padding_mask.shape {x.shape}")
+            print(f"bsz {x.shape}")
+            print(f"src_len {x.shape}")
 
             _xy_padding_mask = (
                 ar_xy_padding_mask.view(bsz, 1, 1, src_len)
