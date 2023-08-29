@@ -95,6 +95,10 @@ class VALLF(nn.Module):
             d_model, NUM_AUDIO_TOKENS + 1 + int(prepend_bos)
         )
 
+        # Language embeddings
+        self.ar_language_embedding = TokenEmbedding(d_model, len(LANG_ID_DICT))
+        self.nar_language_embedding = TokenEmbedding(nar_d_model, len(LANG_ID_DICT))
+
         # PreNet
         if add_prenet:
             self.ar_text_prenet = nn.Sequential(
@@ -748,8 +752,6 @@ class VALLE(VALLF):
             nar_scale_factor=nar_scale_factor,
             **kwargs,
         )
-        self.ar_language_embedding = TokenEmbedding(d_model, len(LANG_ID_DICT))
-        self.nar_language_embedding = TokenEmbedding(d_model, len(LANG_ID_DICT))
 
     def forward(
         self,
