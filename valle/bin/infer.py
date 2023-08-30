@@ -217,12 +217,16 @@ def main():
                 logging.info(f"synthesize text: {text}")
                 text_tokens, text_tokens_lens = text_collater(
                     [
-                        text_tokenizer.tokenize(text=f"{prompt_text}{text}".strip())
+                        tokenize_text(
+                            text_tokenizer, text=f"{prompt_text} {text}".strip()
+                        )
                     ]
                 )
                 _, enroll_x_lens = text_collater(
                     [
-                        text_tokenizer.tokenize(text=f"{prompt_text}".strip())
+                        tokenize_text(
+                            text_tokenizer, text=f"{prompt_text}".strip()
+                        )
                     ]
                 )
 
@@ -256,7 +260,9 @@ def main():
 
         text_tokens, text_tokens_lens = text_collater(
             [
-                text_tokenizer.tokenize(text=f"{text_prompts}{text}".strip())
+                tokenize_text(
+                    text_tokenizer, text=f"{text_prompts} {text}".strip()
+                )
             ]
         )
 
@@ -273,7 +279,9 @@ def main():
             if text_prompts:
                 _, enroll_x_lens = text_collater(
                     [
-                        text_tokenizer.tokenize(text=f"{text_prompts}".strip())
+                        tokenize_text(
+                            text_tokenizer, text=f"{text_prompts}".strip()
+                        )
                     ]
                 )
             encoded_frames = model.inference(
