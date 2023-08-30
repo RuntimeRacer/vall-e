@@ -45,11 +45,13 @@ from valle.data import (
 )
 from valle.data.collation import get_text_token_collater
 from valle.models import add_model_arguments, get_model
+from valle.data.dataset import LANG_ID_DICT
 
 
 def get_args():
     parser = argparse.ArgumentParser()
 
+    # prompt
     parser.add_argument(
         "--text-prompts",
         type=str,
@@ -69,6 +71,27 @@ def get_args():
         type=str,
         default="To get up and running quickly just follow the steps below.",
         help="Text to be synthesized.",
+    )
+
+    parser.add_argument(
+        "--prompt-language",
+        type=str,
+        default='en',
+        help="The language of text prompt."
+    )
+
+    parser.add_argument(
+        "--text-language",
+        type=str,
+        default='en',
+        help="The language of text to synthesize."
+    )
+
+    parser.add_argument(
+        "--convert-to-ascii",
+        type=bool,
+        default=False,
+        help="Internally transcribe all texts into ascii using anyascii.",
     )
 
     # model
@@ -122,35 +145,13 @@ def get_args():
         help="Do continual task.",
     )
 
-    parser.add_argument(
-        "--convert-to-ascii",
-        type=bool,
-        default=False,
-        help="Internally transcribe all texts into ascii using anyascii.",
-    )
-
-    parser.add_argument(
-        "--prompt-language",
-        type=str,
-        default='en',
-        help="The language of text prompt."
-    )
-
-    parser.add_argument(
-        "--text-language",
-        type=str,
-        default='en',
-        help="The language of text to synthesize."
-    )
-
     return parser.parse_args()
 
 
 @torch.no_grad()
 def main():
     args = get_args()
-    # text_tokenizer = TextTokenizer(backend=args.text_extractor)
-    text_tokenizer = TextTokenizer(backend="espeak")
+    text_tokenizer = TextTokenizer(backend=args.text_extractor)
     text_collater = get_text_token_collater(args.text_tokens)
     audio_tokenizer = AudioTokenizer()
 
@@ -190,6 +191,21 @@ def main():
         assert len(args.text_prompts.split("|")) == len(audio_prompts)
         audio_prompts = torch.concat(audio_prompts, dim=-1).transpose(2, 1)
         audio_prompts = audio_prompts.to(device)
+
+    # Language Prompts
+    prompt_language = args.prompt_language
+    text_language = args.text_language
+    if len(prompt_language) == 0 or prompt_language not in LANG_ID_DICT:
+        raise RuntimeError(f"Prompt Language '{prompt_language}' unknown, needs to be in {LANG_ID_DICT}")
+    if len(text_language) == 0:
+        logging.info(f"Text language not specified. Using '{prompt_language}'")
+
+    lang_token = LANG_ID_DICT[prompt_language]
+    accent_token = LANG_ID_DICT[text_language]
+
+    if args.convert_to_ascii:
+        text_prompts = anyascii(text_prompts)
+    text_prompts = accent_token + text_prompts + accent_token
 
     if os.path.isfile(args.text):  # for demos
         # https://github.com/lifeiteng/lifeiteng.github.com/blob/main/valle/prepare.py
@@ -234,8 +250,9 @@ def main():
         logging.info(f"synthesize text: {text}")
 
         if args.convert_to_ascii:
-            text_prompts = anyascii(text_prompts)
             text = anyascii(text)
+
+        text = lang_token + text + lang_token
 
         text_tokens, text_tokens_lens = text_collater(
             [
