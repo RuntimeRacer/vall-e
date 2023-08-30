@@ -201,11 +201,12 @@ def main():
         logging.info(f"Text language not specified. Using '{prompt_language}'")
 
     # Not 100% if this is needed, but that' how the other repo does it
+    prompt_token = f"[{prompt_language}]"
     lang_token = f"[{text_language}]"
 
     if args.convert_to_ascii:
         text_prompts = anyascii(text_prompts)
-    text_prompts = prompt_language + text_prompts + prompt_language
+    text_prompts = prompt_token + text_prompts + prompt_token
 
     if os.path.isfile(args.text):  # for demos
         # https://github.com/lifeiteng/lifeiteng.github.com/blob/main/valle/prepare.py
