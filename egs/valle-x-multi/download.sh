@@ -206,28 +206,33 @@ fi
 # CN-Celeb 1 (SLR82)
 if [ ! -d $dl_dir/cn_celeb ]; then
   wget -c -O cn_celeb.tar.gz -P $dl_dir/ https://www.openslr.org/resources/82/cn-celeb_v2.tar.gz
-  tar xvf $dl_dir/cn_celeb.tar.gz
-#  rm $dl_dir/cn_celeb.tar.gz
+  mkdir -p $dl_dir/cn_celeb
+  tar xvf $dl_dir/cn_celeb.tar.gz -C $dl_dir/cn_celeb
+  rm $dl_dir/cn_celeb.tar.gz
 fi
 # CN-Celeb 2 (SLR82)
 if [ ! -d $dl_dir/cn_celeb_2 ]; then
   wget -c -O cn_celeb_2.tar.gzaa -P $dl_dir/ https://www.openslr.org/resources/82/cn-celeb2_v2.tar.gzaa
   wget -c -O cn_celeb_2.tar.gzab -P $dl_dir/ https://www.openslr.org/resources/82/cn-celeb2_v2.tar.gzab
   wget -c -O cn_celeb_2.tar.gzac -P $dl_dir/ https://www.openslr.org/resources/82/cn-celeb2_v2.tar.gzac
-  cat cn_celeb_2.tar.gz* | tar xvfz -
-#  rm $dl_dir/cn_celeb_2.tar.gz*
+  cat $dl_dir/cn_celeb_2.tar.gzab >> $dl_dir/cn_celeb_2.tar.gzaa
+  cat $dl_dir/cn_celeb_2.tar.gzac >> $dl_dir/cn_celeb_2.tar.gzaa
+  mv $dl_dir/cn_celeb_2.tar.gzaa $dl_dir/cn_celeb_2.tar.gz
+  mkdir -p $dl_dir/cn_celeb_2
+  tar xvf $dl_dir/cn_celeb_2.tar.gz -C $dl_dir/cn_celeb_2
+  rm $dl_dir/cn_celeb_2.tar.gz
 fi
 # MAGICDATA (SLR68)
 if [ ! -d $dl_dir/magicdata ]; then
-  wget -c -O magicdata_train.tar.gz -P $dl_dir/ https://www.openslr.org/resources/68/train_set.tar.gz
   wget -c -O magicdata_dev.tar.gz -P $dl_dir/ https://www.openslr.org/resources/68/dev_set.tar.gz
   wget -c -O magicdata_test.tar.gz -P $dl_dir/ https://www.openslr.org/resources/68/test_set.tar.gz
-  tar xvf $dl_dir/magicdata_train.tar.gz
-  tar xvf $dl_dir/magicdata_dev.tar.gz
-  tar xvf $dl_dir/magicdata_test.tar.gz
-#  rm $dl_dir/magicdata_train.tar.gz
-#  rm $dl_dir/magicdata_dev.tar.gz
-#  rm $dl_dir/magicdata_test.tar.gz
+  wget -c -O magicdata_train.tar.gz -P $dl_dir/ https://www.openslr.org/resources/68/train_set.tar.gz
+  tar xvf $dl_dir/magicdata_dev.tar.gz -C $dl_dir/magicdata
+  tar xvf $dl_dir/magicdata_test.tar.gz -C $dl_dir/magicdata
+  tar xvf $dl_dir/magicdata_train.tar.gz -C $dl_dir/magicdata
+  rm $dl_dir/magicdata_train.tar.gz
+  rm $dl_dir/magicdata_dev.tar.gz
+  rm $dl_dir/magicdata_test.tar.gz
 fi
 # WenetSpeech (SLR121)
 if [ ! -d $dl_dir/wenet_speech ]; then
