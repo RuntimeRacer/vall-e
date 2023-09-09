@@ -9,8 +9,17 @@ dl_dir=$PWD/datasets
 # Corpus passwords
 wenet_speech_pass=""
 
+### Preparations
 # Huggingface
 huggingface-cli login
+# WenetSpeech
+git clone https://github.com/wenet-e2e/WenetSpeech.git repos/WenetSpeech
+echo $wenet_speech_pass > repos/WenetSpeech/SAFEBOX/password
+# VoxPopuli
+git clone https://github.com/facebookresearch/voxpopuli.git repos/VoxPopuli
+pip install -r repos/VoxPopuli/requirements.txt
+
+### Dataset Downloads
 
 ## English datasets
 # Commonvoice 14
@@ -33,10 +42,13 @@ if [ ! -d $dl_dir/librilight_medium ]; then
   mv medium librilight_medium
 #  rm $dl_dir/librilight_medium.tar
 fi
-# Librilight Small
+# Librilight Large
 #wget -c -O librilight_small.tar -P $dl_dir/ https://dl.fbaipublicfiles.com/librilight/data/large.tar
 #tar xvf  $dl_dir/librilight_large.tar
-
+# VoxPopuli
+if [ ! -d $dl_dir/voxpopuli/raw_audios/en ]; then
+  python -m repos.VoxPopuli.voxpopuli.download_audios --root $dl_dir/voxpopuli --subset en_v2
+fi
 
 ## German datasets
 # Commonvoice 14
@@ -50,6 +62,10 @@ if [ ! -d $dl_dir/mls_german ]; then
   wget -c -O mls_german.tar.gz -P $dl_dir/ https://dl.fbaipublicfiles.com/mls/mls_german.tar.gz
   tar xvf $dl_dir/mls_german.tar.gz
 #  rm $dl_dir/mls_german.tar.gz
+fi
+# VoxPopuli
+if [ ! -d $dl_dir/voxpopuli/raw_audios/de ]; then
+  python -m repos.VoxPopuli.voxpopuli.download_audios --root $dl_dir/voxpopuli --subset de_v2
 fi
 
 ## French datasets
@@ -105,6 +121,10 @@ if [ ! -d $dl_dir/audiocite.net ]; then
   unzip $dl_dir/audiocite.net_*.zip $dl_dir/audiocite.net
 #  rm $dl_dir/audiocite.net_*.zip
 fi
+# VoxPopuli
+if [ ! -d $dl_dir/voxpopuli/raw_audios/fr ]; then
+  python -m repos.VoxPopuli.voxpopuli.download_audios --root $dl_dir/voxpopuli --subset fr_v2
+fi
 
 ## Italian datasets
 # Commonvoice 14
@@ -119,13 +139,17 @@ if [ ! -d $dl_dir/mls_italian ]; then
   tar xvf $dl_dir/mls_italian.tar.gz
 #  rm $dl_dir/mls_italian.tar.gz
 fi
+# VoxPopuli
+if [ ! -d $dl_dir/voxpopuli/raw_audios/it ]; then
+  python -m repos.VoxPopuli.voxpopuli.download_audios --root $dl_dir/voxpopuli --subset it_v2
+fi
 
 ## Arabic datasets
 # Commonvoice 14
-if [ ! -d $dl_dir/cv-corpus-14.0-2023-06-23/fa/clips ]; then
-  wget -c -O commonvoice_fa.tar.gz -P $dl_dir/ https://mozilla-common-voice-datasets.s3.dualstack.us-west-2.amazonaws.com/cv-corpus-14.0-2023-06-23/cv-corpus-14.0-2023-06-23-fa.tar.gz
-  tar xvf $dl_dir/commonvoice_fa.tar.gz
-#  rm $dl_dir/commonvoice_fa.tar.gz
+if [ ! -d $dl_dir/cv-corpus-14.0-2023-06-23/ar/clips ]; then
+  wget -c -O commonvoice_ar.tar.gz -P $dl_dir/ https://mozilla-common-voice-datasets.s3.dualstack.us-west-2.amazonaws.com/cv-corpus-14.0-2023-06-23/cv-corpus-14.0-2023-06-23-ar.tar.gz
+  tar xvf $dl_dir/commonvoice_ar.tar.gz
+#  rm $dl_dir/commonvoice_ar.tar.gz
 fi
 # Mohammed (SLR132)
 if [ ! -d $dl_dir/mohammed ]; then
@@ -146,6 +170,10 @@ if [ ! -d $dl_dir/mls_spanish ]; then
   wget -c -O mls_spanish.tar.gz -P $dl_dir/ https://dl.fbaipublicfiles.com/mls/mls_spanish.tar.gz
   tar xvf $dl_dir/mls_spanish.tar.gz
 #  rm $dl_dir/mls_spanish.tar.gz
+fi
+# VoxPopuli
+if [ ! -d $dl_dir/voxpopuli/raw_audios/es ]; then
+  python -m repos.VoxPopuli.voxpopuli.download_audios --root $dl_dir/voxpopuli --subset es_v2
 fi
 
 ## Russian datasets
@@ -203,8 +231,6 @@ if [ ! -d $dl_dir/magicdata ]; then
 fi
 # WenetSpeech (SLR121)
 if [ ! -d $dl_dir/wenet_speech ]; then
-  git clone https://github.com/wenet-e2e/WenetSpeech.git repos/WenetSpeech
-  echo $wenet_speech_pass > repos/WenetSpeech/SAFEBOX/password
   bash repos/WenetSpeech/utils/download_wenetspeech.sh $dl_dir $dl_dir/wenet_speech
   # rm $dl_dir/cn_celeb.tar.gz
 fi
