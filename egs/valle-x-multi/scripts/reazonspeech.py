@@ -1,14 +1,12 @@
 import os
+import shutil
 from pathlib import Path
 import argparse
 
 from tqdm import tqdm
-import soundfile as sf
 
 from huggingface_hub import login
-from datasets import load_dataset, disable_caching
-
-disable_caching()
+from datasets import load_dataset, DownloadConfig, Audio
 
 # Parser for Arguments
 parser = argparse.ArgumentParser(description='Download and process ReazonSpeech for VALL-E-X')
@@ -25,10 +23,13 @@ login(token=os.environ['HUGGINGFACE_TOKEN'])
 # Download dataset from Huggingface
 reazon_speech = load_dataset(
     path="reazon-research/reazonspeech",
-    name="all",
-)
-# This loads the dataset into huggingface cache. Processing will happen in a later step.
-#print(reazon_speech)
+    name="all", # name="small", # => use this for testing
+    download_config=DownloadConfig(resume_download=True, force_download=False, use_etag=True, max_retries=10, num_proc=2),
+    download_mode="reuse_cache_if_exists",
+    #verification_mode="all_checks",
+).cast_column("audio", Audio(decode=False))
+# This loads the dataset into huggingface cache. Actual write to target location will happen in a later step.
+# Since it's a huge dataset of 1.2TB, make sure to have at least 4TB available when running this
 
 base_dir = os.path.join(args.datasets_root, "reazonspeech")
 for key, subset in reazon_speech.items():
@@ -48,28 +49,9 @@ for key, subset in reazon_speech.items():
         os.makedirs(os.path.dirname(audio_file_path), exist_ok=True)
 
         # Store Audio data and transcript
-        sf.write(audio_file_path, item['audio']['array'], item['audio']['sampling_rate'])
+        shutil.copy(item['audio']['path'], audio_file_path)
 
         # Save transcription
         with open(transcript_file_path, 'wb') as f:
             f.write(item['transcription'].encode('utf8'))
 
-
-# reazon_speech = reazon_speech['train']
-# reazon_speech.save_to_disk(args.datasets_root)
-
-
-# ds = load_dataset(
-#     path="reazon-research/reazonspeech",
-#     name="small",
-# )
-
-# base_dir = args.datasets_root
-# dest_dir = base_dir.joinpath('small')
-# dest_json_file = dest_dir.joinpath('small.json')
-# print(dest_json_file)
-#
-# os.makedirs(dest_dir, exist_ok=True)
-# ds["train"].to_json(dest_json_file)
-
-# Preprocess data after download
