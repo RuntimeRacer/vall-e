@@ -29,7 +29,11 @@ reazon_speech = load_dataset(
     #verification_mode="all_checks",
 ).cast_column("audio", Audio(decode=False))
 # This loads the dataset into huggingface cache. Actual write to target location will happen in a later step.
-# Since it's a huge dataset of 1.2TB, make sure to have at least 4TB available when running this
+# Since it's a huge dataset of ~1.2TB, make sure to have at least 4TB available when running this script.
+# It will be stored 3 times effectively:
+# - Downloaded archives in cache
+# - Extracted data + metadata in cache
+# - Processed data in provided dataset_root
 
 base_dir = os.path.join(args.datasets_root, "reazonspeech")
 for key, subset in reazon_speech.items():
