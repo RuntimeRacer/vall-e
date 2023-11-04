@@ -29,34 +29,34 @@ baseline of VALL-E-X's 70k audio hours (https://arxiv.org/pdf/2303.03926.pdf)
 - Mozilla CommonVoice 14.0 (77,82GB - 3.279 audio hours - 88.154 speakers - Transcribed)
 - Librilight Small (35GB - 577 audio hours - 489 speakers - No Transcript)
 - Librilight Medium (321GB - 5770 audio hours - 1742 speakers - No Transcript)
-- VoxPopuli (XXGB - 24100 audio hours - 1313+ speakers - No Transcript)
+- VoxPopuli (321GB - 24100 audio hours - 1313+ speakers - No Transcript)
 
 # German
 - Mozilla CommonVoice 14.0 (32,25GB - 1.376 audio hours - 18.187 speakers - Transcribed)
-- Multilingual LibriSpeech (SLR94) (115GB - 1966 audio hours - 176 speakers - No Transcript)
-- VoxPopuli (XXGB - 23200 audio hours - 531+ speakers - No Transcript)
+- Multilingual LibriSpeech (SLR94) (115GB - 1966 audio hours - 176 speakers - Transcribed)
+- VoxPopuli (379GB - 23200 audio hours - 531+ speakers - No Transcript)
 
 # French
 - Mozilla CommonVoice 14.0 (25,6GB - 1.079 audio hours - 17.761 speakers - Transcribed)
-- Multilingual LibriSpeech (SLR94) (61GB - 1076 audio hours - 142 speakers - No Transcript)
+- Multilingual LibriSpeech (SLR94) (61GB - 1076 audio hours - 142 speakers - Transcribed)
 - Audiocite.net (SLR139) (329,4GB - 6682 audio hours - 130 speakers - No Transcript)
-- VoxPopuli (XXGB - 22800 audio hours - 534+ speakers - No Transcript)
+- VoxPopuli (376GB - 22800 audio hours - 534+ speakers - No Transcript)
 
 # Italian
 - Mozilla CommonVoice 14.0 (8,65GB - 377 audio hours - 6.930 speakers - Transcribed)
-- Multilingual LibriSpeech (SLR94) (15GB - 247 audio hours - 65 speakers - No Transcript)
-- VoxPopuli (XXGB - 21900 audio hours - 306+ speakers - No Transcript)
+- Multilingual LibriSpeech (SLR94) (15GB - 247 audio hours - 65 speakers - Transcribed)
+- VoxPopuli (361GB - 21900 audio hours - 306+ speakers - No Transcript)
 
 # Arabic
 - Mozilla CommonVoice 14.0 (3,05GB - 154 audio hours - 1.466 speakers - Transcribed)
-- Mohammed (SLR132) (24GB - XX audio hours - XX speakers)
+- Mohammed (SLR132) (24GB - XX audio hours - 40 speakers)
 - [Unable to access - QASR (SLR132) (XXGB - 2.041 audio hours - 27977 speakers - Transcribed)]
 - MASC (https://ieee-dataport.org/open-access/masc-massive-arabic-speech-corpus) (169GB - 1.000 audio hours - XX speakers - No Transcript)
 
 # Spanish
 - Mozilla CommonVoice 14.0 (45,98GB - 2.175 audio hours - 25.261 speakers - Transcribed)
-- Multilingual LibriSpeech (SLR94) (50GB - 917 audio hours - 86 speakers - No Transcript)
-- VoxPopuli (XXGB - 21400 audio hours - 305+ speakers - No Transcript)
+- Multilingual LibriSpeech (SLR94) (50GB - 917 audio hours - 86 speakers - Transcribed)
+- VoxPopuli (362GB - 21400 audio hours - 305+ speakers - No Transcript)
 
 # Russian
 - Mozilla CommonVoice 14.0 (5,81GB - 254 audio hours - 3.001 speakers - Transcribed)
