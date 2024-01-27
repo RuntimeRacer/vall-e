@@ -14,16 +14,16 @@ baseline of VALL-E-X's 70k audio hours (https://arxiv.org/pdf/2303.03926.pdf)
 ### Included Languages and Datasets
 ```
 # Stats:
-- Total hours: 
-- English
-- German
-- French
-- Italian
-- Arabic
-- Spanish
-- Russian
-- Simplified Chinese
-- Japanese
+- Total hours: 186.610 audio hours
+- English: 33.726 audio hours
+- German: 26.542 audio hours
+- French: 31.637 audio hours
+- Italian: 22.524 audio hours
+- Arabic: ~1.300 audio hours
+- Spanish: 24.492 audio hours
+- Russian: 1592 audio hours
+- Simplified Chinese: 25.571 audio hours
+- Japanese: 19.226 audio hours
 
 # Engish
 - Mozilla CommonVoice 14.0 (77,82GB - 3.279 audio hours - 88.154 speakers - Transcribed)
@@ -51,7 +51,7 @@ baseline of VALL-E-X's 70k audio hours (https://arxiv.org/pdf/2303.03926.pdf)
 - Mozilla CommonVoice 14.0 (3,05GB - 154 audio hours - 1.466 speakers - Transcribed)
 - Mohammed (SLR132) (24GB - XX audio hours - 40 speakers)
 - [Unable to access - QASR (SLR132) (XXGB - 2.041 audio hours - 27977 speakers - Transcribed)]
-- MASC (https://ieee-dataport.org/open-access/masc-massive-arabic-speech-corpus) (169GB - 1.000 audio hours - XX speakers - No Transcript)
+- MASC (https://ieee-dataport.org/open-access/masc-massive-arabic-speech-corpus) (169GB - 1.000 audio hours - XX speakers - Transcribed)
 
 # Spanish
 - Mozilla CommonVoice 14.0 (45,98GB - 2.175 audio hours - 25.261 speakers - Transcribed)
