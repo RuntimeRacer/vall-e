@@ -245,10 +245,11 @@ def main():
                                 text_tokenizer, text=text
                             )
                             c.supervisions[0].custom = {}
-                        else:  # libritts, commonvoice
+                        else:  # libritts, commonvoice, custom
                             text = c.supervisions[0].text
                             if args.convert_to_ascii:
                                 text = anyascii(text)
+                            text = text.lower()
                             phonemes = tokenize_text(
                                 text_tokenizer, text=text
                             )
