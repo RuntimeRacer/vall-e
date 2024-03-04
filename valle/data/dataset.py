@@ -36,7 +36,7 @@ LANG_ID_DICT = {
     'de': 1,  # German
     'fr': 2,  # French
     'it': 3,  # Italian
-    'fa': 4,  # Persian
+    'ar': 4,  # Arabic
     'es': 5,  # Spanish
     'ru': 6,  # Russian
     'zh-CN': 7,  # Chinese
