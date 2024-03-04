@@ -18,14 +18,19 @@ def extract_transcripts(directory, target_dir=''):
             # Open and read the .tsv file
             with open(file_path, 'r', encoding='utf-8') as tsvfile:
                 reader = csv.DictReader(tsvfile, delimiter='\t')
+                first_line = True
                 for row in reader:
                     # Construct the transcript file name based on the 'path' column
                     # Assuming the 'path' column contains the filename of the audio file, adjust as necessary
-                    transcript_filename = os.path.join(target_dir, f"{os.path.splitext(row['PATH'])[0]}_transcript.txt")
+                    if first_line:
+                        transcript_filename = os.path.join(target_dir, f"{os.path.splitext(row['PATH'])[0]}_transcript.txt")
+                        first_line = False
+                        continue
 
                     # Write the sentence to a new file in the clips directory
                     with open(transcript_filename, 'w', encoding='utf-8') as transcript_file:
-                        transcript_file.write(row['TRANSCRIPT'])
+                        transcript_file.write(row['DURATION'])
+                    first_line = True
 
                     logging.debug(f"Transcript file created: {transcript_filename}")
 
