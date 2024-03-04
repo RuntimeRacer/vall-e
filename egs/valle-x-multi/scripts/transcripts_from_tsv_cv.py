@@ -8,7 +8,10 @@ import re
 import sys
 import time
 from logging import Formatter
+from pathlib import Path
 
+# fix to preven overflows
+csv.field_size_limit(sys.maxsize)
 
 def extract_transcripts(directory, target_dir=''):
     for filename in os.listdir(directory):
@@ -24,8 +27,13 @@ def extract_transcripts(directory, target_dir=''):
                     transcript_filename = os.path.join(target_dir, f"{os.path.splitext(row['path'])[0]}_transcript.txt")
 
                     # Write the sentence to a new file in the clips directory
-                    with open(transcript_filename, 'w', encoding='utf-8') as transcript_file:
-                        transcript_file.write(row['sentence'])
+                    if not Path(transcript_filename).exists():
+                        try:
+                            with open(transcript_filename, 'w', encoding='utf-8') as transcript_file:
+                                transcript_file.write(row['sentence'])
+                        except Exception as e:
+                            logging.warning(str(e))
+                            pass
 
                     logging.debug(f"Transcript file created: {transcript_filename}")
 
