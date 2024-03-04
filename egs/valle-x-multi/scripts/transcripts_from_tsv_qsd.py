@@ -1,4 +1,4 @@
-# This script converts .tsv files into simple text files containing the full transcript for all audio files inside
+# This script converts Quran Speech Dataset's .tsv files into simple text files containing the full transcript for all audio files inside
 
 import argparse
 import logging
@@ -21,11 +21,11 @@ def extract_transcripts(directory, target_dir=''):
                 for row in reader:
                     # Construct the transcript file name based on the 'path' column
                     # Assuming the 'path' column contains the filename of the audio file, adjust as necessary
-                    transcript_filename = os.path.join(target_dir, f"{os.path.splitext(row['path'])[0]}_transcript.txt")
+                    transcript_filename = os.path.join(target_dir, f"{os.path.splitext(row['PATH'])[0]}_transcript.txt")
 
                     # Write the sentence to a new file in the clips directory
                     with open(transcript_filename, 'w', encoding='utf-8') as transcript_file:
-                        transcript_file.write(row['sentence'])
+                        transcript_file.write(row['TRANSCRIPT'])
 
                     logging.debug(f"Transcript file created: {transcript_filename}")
 
