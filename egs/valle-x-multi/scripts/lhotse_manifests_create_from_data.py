@@ -112,7 +112,7 @@ def process_transcript(transcript_path, audio_file_path, language):
     # Create random UUID for this recording
     recording_id = str(uuid.uuid4())
     # Use Lhotse recording backend to analyse audio
-    recording = Recording.from_file(audio_file_path.stem, recording_id=recording_id)
+    recording = Recording.from_file(audio_file_path, recording_id=recording_id)
     # Then, create the corresponding supervisions
     segment = SupervisionSegment(
         id=recording_id,
