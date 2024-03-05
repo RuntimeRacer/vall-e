@@ -51,26 +51,23 @@ def build_audio_dataset_manifest(directory, output_file_name=None, language='', 
                 directory_path.rglob("*_transcript.txt"), desc="Distributing tasks", leave=False
         ):
             # We will create a separate Recording and SupervisionSegment for each file.
-            with open(transcript_path) as f:
-                # get transcript text
-                transcript_text = f.readline().strip()
-                # get base path of the transcript file to search for corresponding audio file
-                transcript_path = str(transcript_path)
-                base_name = transcript_path.rsplit('_transcript.txt', 1)[0]
-                # Use glob to find matching audio files with any extension
-                audio_files = glob.glob(f"{base_name}.*")
-                if len(audio_files) == 0:
-                    logging.warning(f"No matching audio file found for transcript file {transcript_path}.")
-                    continue
-                if len(audio_files) > 1:
-                    logging.warning(f"more than one possible audio files for transcript file {transcript_path}. Only first one is picked.")
-                # Take first match
-                audio_file_path = Path(audio_files[0])  # Take the first match
+            # get base path of the transcript file to search for corresponding audio file
+            transcript_path = str(transcript_path)
+            base_name = transcript_path.rsplit('_transcript.txt', 1)[0]
+            # Use glob to find matching audio files with any extension
+            audio_files = glob.glob(f"{base_name}.*")
+            if len(audio_files) == 0:
+                logging.warning(f"No matching audio file found for transcript file {transcript_path}.")
+                continue
+            if len(audio_files) > 1:
+                logging.warning(f"more than one possible audio files for transcript file {transcript_path}. Only first one is picked.")
+            # Take first match
+            audio_file_path = Path(audio_files[0])  # Take the first match
 
-                # Submit to processing
-                futures.append(
-                    ex.submit(process_transcript, transcript_text, audio_file_path, language)
-                )
+            # Submit to processing
+            futures.append(
+                ex.submit(process_transcript, transcript_path, audio_file_path, language)
+            )
 
         for future in tqdm(futures, desc="Processing", leave=False):
             result = future.result()
@@ -99,10 +96,18 @@ def build_audio_dataset_manifest(directory, output_file_name=None, language='', 
             )
 
 
-def process_transcript(transcript_text, audio_file_path, language):
+def process_transcript(transcript_path, audio_file_path, language):
+    if not transcript_path.is_file():
+        logging.warning(f"No such file: {transcript_path}")
+        return None
     if not audio_file_path.is_file():
         logging.warning(f"No such file: {audio_file_path}")
         return None
+
+    # Read transcript file content
+    with open(transcript_path) as f:
+        # get transcript text
+        transcript_text = f.readline().strip()
 
     # Create random UUID for this recording
     recording_id = str(uuid.uuid4())
