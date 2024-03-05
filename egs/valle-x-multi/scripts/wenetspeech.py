@@ -123,6 +123,11 @@ def format_timestamp(
     seconds = milliseconds // 1_000
     milliseconds -= seconds * 1_000
 
+    hours = int(hours)
+    minutes = int(minutes)
+    seconds = int(seconds)
+    milliseconds = int(milliseconds)
+
     hours_marker = f"{hours:02d}:" if always_include_hours or hours > 0 else ""
     return (
         f"{hours_marker}{minutes:02d}:{seconds:02d}{decimal_marker}{milliseconds:03d}"
