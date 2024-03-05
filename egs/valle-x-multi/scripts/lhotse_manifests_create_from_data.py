@@ -52,8 +52,8 @@ def build_audio_dataset_manifest(directory, output_file_name=None, language='', 
         ):
             # We will create a separate Recording and SupervisionSegment for each file.
             # get base path of the transcript file to search for corresponding audio file
-            transcript_path = str(transcript_path)
-            base_name = transcript_path.rsplit('_transcript.txt', 1)[0]
+            transcript_path_str = str(transcript_path)
+            base_name = transcript_path_str.rsplit('_transcript.txt', 1)[0]
             # Use glob to find matching audio files with any extension
             audio_files = glob.glob(f"{base_name}.*")
             if len(audio_files) == 0:
