@@ -27,6 +27,9 @@ def prepare_dataset(dataset_root, output_dir, threads=16):
     with ThreadPoolExecutor(threads) as ex:
         # Prepare processing
         futures = []
+        processed = 0
+        skipped = 0
+        failed = 0
 
         for audio_file in tqdm(audio_list, "Distributing tasks", leave=False):
             # Split each Segment using FFMPEG in second step
@@ -45,6 +48,18 @@ def prepare_dataset(dataset_root, output_dir, threads=16):
                         segment['text'],
                     )
                 )
+
+        # Wait for all futures to return
+        for future in tqdm(futures, desc="Processing", leave=False):
+            result = future.result()
+            if result is None:
+                skipped += 1
+            elif result is True:
+                processed += 1
+            else:
+                failed += 1
+
+        logging.info(f"finished iterating through {len(futures)} segments. Skipped: {skipped} | Processed: {processed} | Failed: {failed}")
 
 
 def process_audio_file_segment(audio_file_path, dataset_root, output_dir, segment_id, start, end, text):
@@ -70,7 +85,7 @@ def process_audio_file_segment(audio_file_path, dataset_root, output_dir, segmen
     # if the file already exists, skip conversion
     dest_audio_path = Path(segment_audio_file)
     if dest_audio_path.is_file():
-        return
+        return None
 
     # Process using FFMPEG
     convert_args = [
@@ -91,6 +106,7 @@ def process_audio_file_segment(audio_file_path, dataset_root, output_dir, segmen
         str(segment_audio_file)
     ]
     subprocess.call(convert_args)
+    return True
 
 
 def format_timestamp(
