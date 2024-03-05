@@ -19,7 +19,18 @@ from lhotse import Recording, SupervisionSegment, RecordingSet, SupervisionSet, 
     validate_recordings_and_supervisions
 from tqdm import tqdm
 
-from valle.data.dataset import LANG_ID_DICT
+# Make sure this matches the one in valle.data.dataset
+LANG_ID_DICT = {
+    'en': 0,  # English
+    'de': 1,  # German
+    'fr': 2,  # French
+    'it': 3,  # Italian
+    'ar': 4,  # Arabic
+    'es': 5,  # Spanish
+    'ru': 6,  # Russian
+    'zh-CN': 7,  # Chinese
+    'ja': 8  # Japanese
+}
 
 
 def build_audio_dataset_manifest(directory, output_file_name=None, language='', threads=16):
