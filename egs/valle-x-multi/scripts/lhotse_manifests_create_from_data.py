@@ -140,4 +140,4 @@ if __name__ == "__main__":
 
     # Run
     args = parser.parse_args()
-    build_audio_dataset_manifest(args.dir, args.target_dir, args.language, args.threads)
+    build_audio_dataset_manifest(args.dir, args.output_file, args.language, args.threads)
