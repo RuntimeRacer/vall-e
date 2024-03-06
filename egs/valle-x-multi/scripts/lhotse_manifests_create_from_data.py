@@ -44,10 +44,9 @@ def build_audio_dataset_manifest(directory, output_file_name=None, language='', 
 
         # find all transcripts
         directory_path = Path(directory)  # convert to path object
+        transcript_files = list(directory_path.rglob("*_transcript.txt"))  # List transcript files in directory and subdirectories
 
-        for transcript_path in tqdm(
-                directory_path.rglob("*_transcript.txt"), desc="Distributing tasks", leave=False
-        ):
+        for transcript_path in tqdm(transcript_files, desc="Distributing tasks", leave=False):
             # We will create a separate Recording and SupervisionSegment for each file.
             # get base path of the transcript file to search for corresponding audio file
             transcript_path_str = str(transcript_path)
