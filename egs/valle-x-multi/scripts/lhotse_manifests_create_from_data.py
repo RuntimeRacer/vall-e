@@ -120,7 +120,7 @@ def process_transcript(transcript_path, audio_file_path, language):
         logging.warning(f"No Channels audio file {audio_file_path}.")
         return None
     expected_duration = recording.num_samples / recording.sampling_rate
-    if abs(expected_duration - recording.duration) <= LHOTSE_AUDIO_DURATION_MISMATCH_TOLERANCE:
+    if abs(expected_duration - recording.duration) <= 0.025:
         logging.warning(f"Audio duration not within tolerance for audio file {audio_file_path}.")
         return None
 
