@@ -45,17 +45,21 @@ def build_audio_dataset_manifest(directory, output_file_name=None, language='', 
         futures = []
 
         # find all transcripts
-        directory_path = Path(directory) # convert to path object
+        directory_path = Path(directory)  # convert to path object
+        all_files = list(directory_path.rglob("*"))  # List all files in directory and subdirectories
 
-        for transcript_path in tqdm(
-                directory_path.rglob("*_transcript.txt"), desc="Distributing tasks", leave=False
-        ):
+        # Find all paths ending with '_transcript.txt'
+        transcript_files = [f for f in all_files if f.name.endswith('_transcript.txt')]
+
+        # Preparing a set of base names without extensions for quick lookup
+        non_transcript_files = set(f for f in all_files if not f.name.endswith('_transcript.txt'))
+
+        for transcript_path in tqdm(transcript_files, desc="Distributing tasks", leave=False):
             # We will create a separate Recording and SupervisionSegment for each file.
             # get base path of the transcript file to search for corresponding audio file
-            transcript_path_str = str(transcript_path)
-            base_name = transcript_path_str.rsplit('_transcript.txt', 1)[0]
-            # Use glob to find matching audio files with any extension
-            audio_files = glob.glob(f"{base_name}.*")
+            base_name = transcript_path.stem.rsplit('_transcript', 1)[0]
+            # find matching non-transcript files with any extension
+            audio_files = [f for f in non_transcript_files if f.stem == base_name]
             if len(audio_files) == 0:
                 logging.warning(f"No matching audio file found for transcript file {transcript_path}.")
                 continue
