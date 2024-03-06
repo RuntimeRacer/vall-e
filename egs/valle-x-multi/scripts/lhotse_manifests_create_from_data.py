@@ -9,7 +9,7 @@ import logging
 import sys
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from logging import Formatter
 from pathlib import Path
 
@@ -36,7 +36,7 @@ def build_audio_dataset_manifest(directory, output_file_name=None, language='', 
     if language not in LANG_ID_DICT:
         raise RuntimeError(f"provided language {language} is not a member of allowed languages")
 
-    with ThreadPoolExecutor(threads) as ex:
+    with ProcessPoolExecutor(threads) as ex:
         # Setup
         recordings = []
         supervisions = []
