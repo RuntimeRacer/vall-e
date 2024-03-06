@@ -54,9 +54,9 @@ def build_audio_dataset_manifest(directory, output_file_name=None, language='', 
         for transcript_path in tqdm(transcript_files, desc="Distributing tasks", leave=False):
             # We will create a separate Recording and SupervisionSegment for each file.
             # get base path of the transcript file to search for corresponding audio file
-            base_name = str(transcript_path.stem.rsplit('_transcript', 1)[0])
+            base_name = transcript_path.stem.rsplit('_transcript', 1)[0]
             # find matching non-transcript files with any extension
-            audio_files = [f for f in non_transcript_files if base_name in f]
+            audio_files = [f for f in non_transcript_files if base_name in str(f)]
             if len(audio_files) == 0:
                 logging.warning(f"No matching audio file found for transcript file {transcript_path}.")
                 continue
