@@ -59,7 +59,7 @@ def build_audio_dataset_manifest(directory, output_file_name=None, language='', 
             # get base path of the transcript file to search for corresponding audio file
             base_name = transcript_path.stem.rsplit('_transcript', 1)[0]
             # find matching non-transcript files with any extension
-            audio_files = [f for f in non_transcript_files if f.stem == base_name]
+            audio_files = [f for f in non_transcript_files if f == base_name]
             if len(audio_files) == 0:
                 logging.warning(f"No matching audio file found for transcript file {transcript_path}.")
                 continue
@@ -101,13 +101,6 @@ def build_audio_dataset_manifest(directory, output_file_name=None, language='', 
 
 
 def process_transcript(transcript_path, audio_file_path, language):
-    if not transcript_path.is_file():
-        logging.warning(f"No such file: {transcript_path}")
-        return None
-    if not audio_file_path.is_file():
-        logging.warning(f"No such file: {audio_file_path}")
-        return None
-
     # Read transcript file content
     with open(transcript_path) as f:
         # get transcript text
