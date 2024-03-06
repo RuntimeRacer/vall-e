@@ -4,10 +4,7 @@
 
 
 import argparse
-import glob
-import json
 import logging
-import os.path
 import sys
 import time
 import uuid
@@ -17,7 +14,6 @@ from pathlib import Path
 
 from lhotse import Recording, SupervisionSegment, RecordingSet, SupervisionSet, fix_manifests, \
     validate_recordings_and_supervisions
-from lhotse.audio import LHOTSE_AUDIO_DURATION_MISMATCH_TOLERANCE
 from tqdm import tqdm
 
 # Make sure this matches the one in valle.data.dataset
