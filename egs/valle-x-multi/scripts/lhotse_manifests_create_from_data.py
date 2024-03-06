@@ -17,6 +17,7 @@ from pathlib import Path
 
 from lhotse import Recording, SupervisionSegment, RecordingSet, SupervisionSet, fix_manifests, \
     validate_recordings_and_supervisions
+from lhotse.audio import LHOTSE_AUDIO_DURATION_MISMATCH_TOLERANCE
 from tqdm import tqdm
 
 # Make sure this matches the one in valle.data.dataset
@@ -52,12 +53,12 @@ def build_audio_dataset_manifest(directory, output_file_name=None, language='', 
         transcript_files = [f for f in all_files if f.name.endswith('_transcript.txt')]
 
         # Preparing a set of base names without extensions for quick lookup
-        non_transcript_files = set(f for f in all_files if not f.name.endswith('_transcript.txt'))
+        non_transcript_files = [f for f in all_files if not f.name.endswith('_transcript.txt')]
 
         for transcript_path in tqdm(transcript_files, desc="Distributing tasks", leave=False):
             # We will create a separate Recording and SupervisionSegment for each file.
             # get base path of the transcript file to search for corresponding audio file
-            base_name = transcript_path.stem.rsplit('_transcript', 1)[0]
+            base_name = str(transcript_path.stem.rsplit('_transcript', 1)[0])
             # find matching non-transcript files with any extension
             audio_files = [f for f in non_transcript_files if base_name in f]
             if len(audio_files) == 0:
@@ -110,6 +111,19 @@ def process_transcript(transcript_path, audio_file_path, language):
     recording_id = str(uuid.uuid4())
     # Use Lhotse recording backend to analyse audio
     recording = Recording.from_file(audio_file_path, recording_id=recording_id)
+
+    # Check for things which will break in validation step and make us loose all progress -.-
+    if recording.duration == 0:
+        logging.warning(f"Audio duration 0 for audio file {audio_file_path}.")
+        return None
+    if recording.num_channels == 0:
+        logging.warning(f"No Channels audio file {audio_file_path}.")
+        return None
+    expected_duration = recording.num_samples / recording.sampling_rate
+    if abs(expected_duration - recording.duration) <= LHOTSE_AUDIO_DURATION_MISMATCH_TOLERANCE:
+        logging.warning(f"Audio duration not within tolerance for audio file {audio_file_path}.")
+        return None
+
     # Then, create the corresponding supervisions
     segment = SupervisionSegment(
         id=recording_id,
