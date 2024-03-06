@@ -4,6 +4,7 @@
 
 
 import argparse
+import json
 import logging
 import sys
 import time
@@ -54,16 +55,17 @@ def build_audio_dataset_manifest(directory, output_file_name=None, language='', 
         for transcript_path in tqdm(transcript_files, desc="Distributing tasks", leave=False):
             # We will create a separate Recording and SupervisionSegment for each file.
             # get base path of the transcript file to search for corresponding audio file
-            base_name = transcript_path.stem.rsplit('_transcript', 1)[0]
+            base_path = str(transcript_path)
+            base_path = base_path.rsplit('_transcript', 1)[0]
             # find matching non-transcript files with any extension
-            audio_files = [f for f in non_transcript_files if base_name in str(f)]
+            audio_files = [f for f in non_transcript_files if base_path in str(f)]
             if len(audio_files) == 0:
                 logging.warning(f"No matching audio file found for transcript file {transcript_path}.")
                 continue
             if len(audio_files) > 1:
                 logging.warning(f"more than one possible audio files for transcript file {transcript_path}. Only first one is picked.")
             # Take first match
-            audio_file_path = Path(audio_files[0])  # Take the first match
+            audio_file_path = audio_files[0]  # Take the first match
 
             # Submit to processing
             futures.append(
