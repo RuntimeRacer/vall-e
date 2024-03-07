@@ -16,6 +16,7 @@ from pathlib import Path
 from lhotse import Recording, SupervisionSegment, RecordingSet, SupervisionSet, fix_manifests, \
     validate_recordings_and_supervisions
 from tqdm import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 # Make sure this matches the one in valle.data.dataset
 LANG_ID_DICT = {
@@ -80,11 +81,13 @@ def build_audio_dataset_manifest(directory, output_file_name=None, language='', 
             base_path = transcript_path_str.rsplit('_transcript.txt', 1)[0]
             # find matching potential audio files with any extension
             if base_path not in file_dict:
-                logging.warning(f"No matching audio file found for transcript file {transcript_path_str}.")
+                with logging_redirect_tqdm():
+                    logging.warning(f"No matching audio file found for transcript file {transcript_path_str}.")
                 continue
             audio_files = file_dict[base_path]
             if len(audio_files) > 1:
-                logging.warning(f"more than one possible audio files for transcript file {transcript_path}. Only first one is picked.")
+                with logging_redirect_tqdm():
+                    logging.warning(f"more than one possible audio files for transcript file {transcript_path}. Only first one is picked.")
             # Take first match
             audio_file_path = audio_files[0]  # Take the first match
 
@@ -138,10 +141,12 @@ def process_transcript(transcript_path, audio_file_path, language):
 
     # Check for things which will break in validation step and make us loose all progress -.-
     if recording.duration == 0:
-        logging.warning(f"Audio duration 0 for audio file {audio_file_path}.")
+        with logging_redirect_tqdm():
+            logging.warning(f"Audio duration 0 for audio file {audio_file_path}.")
         return None
     if recording.num_channels == 0:
-        logging.warning(f"No Channels audio file {audio_file_path}.")
+        with logging_redirect_tqdm():
+            logging.warning(f"No Channels audio file {audio_file_path}.")
         return None
     expected_duration = recording.num_samples / recording.sampling_rate
     # if abs(expected_duration - recording.duration) <= 0.025:
