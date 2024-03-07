@@ -40,7 +40,7 @@ def load_files_into_memory(directory_path):
     file_dict = {}
     # Collect all relevant files
     all_paths = directory_path.rglob('*')
-    logging.info(f"Found {len(all_paths)} files in total. Determining Transcripts and Other files.")
+    logging.info(f"Found {len(all_paths)} files in total. Determining Transcripts and Other files...")
     for file_path in all_paths:
         # Exclude directories and focus on files only
         if file_path.is_file():
