@@ -74,11 +74,11 @@ def build_audio_dataset_manifest(directory, output_file_name=None, language='', 
             # get base path of the transcript file to search for corresponding audio file
             transcript_path_str = str(transcript_path)
             base_path = transcript_path_str.rsplit('_transcript.txt', 1)[0]
-            # Use glob to find matching audio files with any extension
-            audio_files = file_dict[base_path]
-            if len(audio_files) == 0:
-                logging.warning(f"No matching audio file found for transcript file {transcript_path}.")
+            # find matching potential audio files with any extension
+            if base_path not in audio_files:
+                logging.warning(f"No matching audio file found for transcript file {transcript_path_str}.")
                 continue
+            audio_files = file_dict[base_path]
             if len(audio_files) > 1:
                 logging.warning(f"more than one possible audio files for transcript file {transcript_path}. Only first one is picked.")
             # Take first match
