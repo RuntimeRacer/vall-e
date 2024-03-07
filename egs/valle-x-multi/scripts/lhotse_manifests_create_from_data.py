@@ -36,61 +36,63 @@ def build_audio_dataset_manifest(directory, output_file_name=None, language='', 
     if language not in LANG_ID_DICT:
         raise RuntimeError(f"provided language {language} is not a member of allowed languages")
 
+
+    # Setup
+    recordings = []
+    supervisions = []
+    tasks = []
+
+    # find all transcripts
+    directory_path = Path(directory)  # convert to path object
+    transcript_files = list(directory_path.rglob("*_transcript.txt"))  # List transcript files in directory and subdirectories
+
+    for transcript_path in tqdm(transcript_files, desc="Distributing tasks", leave=False):
+        # We will create a separate Recording and SupervisionSegment for each file.
+        # get base path of the transcript file to search for corresponding audio file
+        transcript_path_str = str(transcript_path)
+        base_name = transcript_path_str.rsplit('_transcript.txt', 1)[0]
+        # Use glob to find matching audio files with any extension
+        audio_files = glob.glob(f"{base_name}.*")
+        if len(audio_files) == 0:
+            logging.warning(f"No matching audio file found for transcript file {transcript_path}.")
+            continue
+        if len(audio_files) > 1:
+            logging.warning(f"more than one possible audio files for transcript file {transcript_path}. Only first one is picked.")
+        # Take first match
+        audio_file_path = audio_files[0]  # Take the first match
+
+        # Submit to processing
+        tasks.append((transcript_path, audio_file_path, language))
+
+    # Process in parallel
     with ProcessPoolExecutor(threads) as ex:
-        # Setup
-        recordings = []
-        supervisions = []
-        futures = []
+        results = list(tqdm(ex.map(lambda p: process_transcript(*p), tasks), total=len(tasks), desc="Processing", leave=False))
 
-        # find all transcripts
-        directory_path = Path(directory)  # convert to path object
-        transcript_files = list(directory_path.rglob("*_transcript.txt"))  # List transcript files in directory and subdirectories
+    # build Recording and Supervision list
+    for result in results:
+        if result is None:
+            continue
+        recording, segment = result
+        recordings.append(recording)
+        supervisions.append(segment)
 
-        for transcript_path in tqdm(transcript_files, desc="Distributing tasks", leave=False):
-            # We will create a separate Recording and SupervisionSegment for each file.
-            # get base path of the transcript file to search for corresponding audio file
-            transcript_path_str = str(transcript_path)
-            base_name = transcript_path_str.rsplit('_transcript.txt', 1)[0]
-            # Use glob to find matching audio files with any extension
-            audio_files = glob.glob(f"{base_name}.*")
-            if len(audio_files) == 0:
-                logging.warning(f"No matching audio file found for transcript file {transcript_path}.")
-                continue
-            if len(audio_files) > 1:
-                logging.warning(f"more than one possible audio files for transcript file {transcript_path}. Only first one is picked.")
-            # Take first match
-            audio_file_path = audio_files[0]  # Take the first match
+    # Convert to Lhotse sets
+    recording_set = RecordingSet.from_recordings(recordings)
+    supervision_set = SupervisionSet.from_segments(supervisions)
 
-            # Submit to processing
-            futures.append(
-                ex.submit(process_transcript, transcript_path, audio_file_path, language)
-            )
+    # Basic final validation
+    recording_set, supervision_set = fix_manifests(
+        recording_set, supervision_set
+    )
+    validate_recordings_and_supervisions(recording_set, supervision_set)
 
-        for future in tqdm(futures, desc="Processing", leave=False):
-            result = future.result()
-            if result is None:
-                continue
-            recording, segment = result
-            recordings.append(recording)
-            supervisions.append(segment)
-
-        # Convert to Lhotse sets
-        recording_set = RecordingSet.from_recordings(recordings)
-        supervision_set = SupervisionSet.from_segments(supervisions)
-
-        # Basic final validation
-        recording_set, supervision_set = fix_manifests(
-            recording_set, supervision_set
+    if output_file_name is not None:
+        supervision_set.to_file(
+            f"{output_file_name}_supervisions.jsonl.gz"
         )
-        validate_recordings_and_supervisions(recording_set, supervision_set)
-
-        if output_file_name is not None:
-            supervision_set.to_file(
-                f"{output_file_name}_supervisions.jsonl.gz"
-            )
-            recording_set.to_file(
-                f"{output_file_name}_recordings.jsonl.gz"
-            )
+        recording_set.to_file(
+            f"{output_file_name}_recordings.jsonl.gz"
+        )
 
 
 def process_transcript(transcript_path, audio_file_path, language):

@@ -8,6 +8,8 @@ from concurrent.futures import ProcessPoolExecutor
 from logging import Formatter
 from pathlib import Path
 
+from tqdm import tqdm
+
 
 def convert_to_flac(file_path):
     """
@@ -18,7 +20,7 @@ def convert_to_flac(file_path):
 
     # Command to convert the file using ffmpeg
     command = [
-        '/usr/bin/ffmpeg',
+        'ffmpeg',
         "-y",
         "-loglevel",
         "fatal",
@@ -62,7 +64,7 @@ def convert_files(root_dir, threads):
     """
     files_to_convert = list(find_files(root_dir))
     with ProcessPoolExecutor(threads) as executor:
-        executor.map(convert_to_flac, files_to_convert)
+        list(tqdm(executor.map(convert_to_flac, files_to_convert), total=len(files_to_convert)))
 
 
 if __name__ == '__main__':
