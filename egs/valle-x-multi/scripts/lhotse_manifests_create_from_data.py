@@ -102,7 +102,12 @@ def process_transcript(transcript_path, audio_file_path, language):
     # Create random UUID for this recording
     recording_id = str(uuid.uuid4())
     # Use Lhotse recording backend to analyse audio
-    recording = Recording.from_file(audio_file_path, recording_id=recording_id)
+    recording = Recording.from_file(
+        audio_file_path,
+        recording_id=recording_id,
+        force_opus_sampling_rate=24000,
+        force_read_audio=True,
+    )
 
     # Check for things which will break in validation step and make us loose all progress -.-
     if recording.duration == 0:
