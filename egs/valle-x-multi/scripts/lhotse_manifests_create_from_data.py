@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from logging import Formatter
 from pathlib import Path
 
+from audioread.ffdec import ReadTimeoutError
 from lhotse import Recording, SupervisionSegment, RecordingSet, SupervisionSet, fix_manifests, \
     validate_recordings_and_supervisions
 from tqdm import tqdm
@@ -62,7 +63,7 @@ def load_files_into_memory(directory_path):
 def build_audio_dataset_manifest(directory, output_file_name=None, language='', threads=16):
     # Check for valid language key
     if language not in LANG_ID_DICT:
-        raise RuntimeError(f"provided language {language} is not a member of allowed languages")
+        raise RuntimeError(f"provided language '{language}' is not a member of allowed languages")
 
     with ThreadPoolExecutor(threads) as ex:
         # Setup
@@ -82,12 +83,13 @@ def build_audio_dataset_manifest(directory, output_file_name=None, language='', 
             # find matching potential audio files with any extension
             if base_path not in file_dict:
                 with logging_redirect_tqdm():
-                    logging.warning(f"No matching audio file found for transcript file {transcript_path_str}.")
+                    logging.warning(f"No matching audio file found for transcript file '{transcript_path_str}'.")
                 continue
             audio_files = file_dict[base_path]
             if len(audio_files) > 1:
                 with logging_redirect_tqdm():
-                    logging.warning(f"more than one possible audio files for transcript file {transcript_path}. Only first one is picked.")
+                    logging.warning(f"more than one possible audio files for transcript file '{transcript_path}'. "
+                                    f"Only first one is picked.")
             # Take first match
             audio_file_path = audio_files[0]  # Take the first match
 
@@ -132,21 +134,27 @@ def process_transcript(transcript_path, audio_file_path, language):
     # Create random UUID for this recording
     recording_id = str(uuid.uuid4())
     # Use Lhotse recording backend to analyse audio
-    recording = Recording.from_file(
-        audio_file_path,
-        recording_id=recording_id,
-        force_opus_sampling_rate=24000,
-        force_read_audio=True,
-    )
+    try:
+        recording = Recording.from_file(
+            audio_file_path,
+            recording_id=recording_id,
+            force_opus_sampling_rate=24000,
+            force_read_audio=True,
+        )
+    except ReadTimeoutError as e:
+        with logging_redirect_tqdm():
+            logging.warning(f"Decoding error when trying to read audio file '{audio_file_path}'. "
+                            f"File might be corrupted. Skipping...")
+        return None
 
     # Check for things which will break in validation step and make us loose all progress -.-
     if recording.duration == 0:
         with logging_redirect_tqdm():
-            logging.warning(f"Audio duration 0 for audio file {audio_file_path}.")
+            logging.warning(f"Audio duration 0 for audio file '{audio_file_path}'. Skipping...")
         return None
     if recording.num_channels == 0:
         with logging_redirect_tqdm():
-            logging.warning(f"No Channels audio file {audio_file_path}.")
+            logging.warning(f"No Channels audio file '{audio_file_path}'. Skipping...")
         return None
     expected_duration = recording.num_samples / recording.sampling_rate
     # if abs(expected_duration - recording.duration) <= 0.025:
