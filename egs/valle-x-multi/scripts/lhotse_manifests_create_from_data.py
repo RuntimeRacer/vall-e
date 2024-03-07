@@ -31,50 +31,71 @@ LANG_ID_DICT = {
 }
 
 
+def load_files_into_memory(directory_path):
+    """
+    Traverse the directory once and store all relevant files in a dictionary by their base name.
+    """
+    transcript_files = []
+    file_dict = {}
+    # Collect all relevant files
+    for file_path in directory_path.rglob('*'):
+        # Exclude directories and focus on files only
+        if file_path.is_file():
+            # strip the extension and ignore txt files which are not transcripts
+            file_path_str = str(file_path)
+            base_path, _, extension = file_path_str.rpartition('.')
+            if extension == "txt":
+                if '_transcript.txt' in file_path_str:
+                    transcript_files.append(file_path)
+                continue
+            if base_path not in file_dict:
+                file_dict[base_path] = []
+            file_dict[base_path].append(file_path)
+    return transcript_files, file_dict
+
+
 def build_audio_dataset_manifest(directory, output_file_name=None, language='', threads=16):
     # Check for valid language key
     if language not in LANG_ID_DICT:
         raise RuntimeError(f"provided language {language} is not a member of allowed languages")
 
-
-    # Setup
-    recordings = []
-    supervisions = []
-    tasks = []
-
-    # find all transcripts
-    directory_path = Path(directory)  # convert to path object
-    transcript_files = list(directory_path.rglob("*_transcript.txt"))  # List transcript files in directory and subdirectories
-
-    for transcript_path in tqdm(transcript_files, desc="Distributing tasks", leave=False):
-        # We will create a separate Recording and SupervisionSegment for each file.
-        # get base path of the transcript file to search for corresponding audio file
-        transcript_path_str = str(transcript_path)
-        base_name = transcript_path_str.rsplit('_transcript.txt', 1)[0]
-        # Use glob to find matching audio files with any extension
-        audio_files = glob.glob(f"{base_name}.*")
-        if len(audio_files) == 0:
-            logging.warning(f"No matching audio file found for transcript file {transcript_path}.")
-            continue
-        if len(audio_files) > 1:
-            logging.warning(f"more than one possible audio files for transcript file {transcript_path}. Only first one is picked.")
-        # Take first match
-        audio_file_path = audio_files[0]  # Take the first match
-
-        # Submit to processing
-        tasks.append((transcript_path, audio_file_path, language))
-
-    # Process in parallel
     with ProcessPoolExecutor(threads) as ex:
-        results = list(tqdm(ex.map(lambda p: process_transcript(*p), tasks), total=len(tasks), desc="Processing", leave=False))
+        # Setup
+        recordings = []
+        supervisions = []
+        futures = []
 
-    # build Recording and Supervision list
-    for result in results:
-        if result is None:
-            continue
-        recording, segment = result
-        recordings.append(recording)
-        supervisions.append(segment)
+        # find all transcripts
+        directory_path = Path(directory)  # convert to path object
+        transcript_files, file_dict = load_files_into_memory(directory_path)
+
+        for transcript_path in tqdm(transcript_files, desc="Distributing tasks", leave=False):
+            # We will create a separate Recording and SupervisionSegment for each file.
+            # get base path of the transcript file to search for corresponding audio file
+            transcript_path_str = str(transcript_path)
+            base_path = transcript_path_str.rsplit('_transcript.txt', 1)[0]
+            # Use glob to find matching audio files with any extension
+            audio_files = file_dict[base_path]
+            if len(audio_files) == 0:
+                logging.warning(f"No matching audio file found for transcript file {transcript_path}.")
+                continue
+            if len(audio_files) > 1:
+                logging.warning(f"more than one possible audio files for transcript file {transcript_path}. Only first one is picked.")
+            # Take first match
+            audio_file_path = audio_files[0]  # Take the first match
+
+            # Submit to processing
+            futures.append(
+                ex.submit(process_transcript, transcript_path, audio_file_path, language)
+            )
+
+        for future in tqdm(futures, desc="Processing", leave=False):
+            result = future.result()
+            if result is None:
+                continue
+            recording, segment = result
+            recordings.append(recording)
+            supervisions.append(segment)
 
     # Convert to Lhotse sets
     recording_set = RecordingSet.from_recordings(recordings)
