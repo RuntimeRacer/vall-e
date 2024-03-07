@@ -35,10 +35,13 @@ def load_files_into_memory(directory_path):
     """
     Traverse the directory once and store all relevant files in a dictionary by their base name.
     """
+    logging.info(f"Scanning directory {directory_path} for audio files and transcripts.")
     transcript_files = []
     file_dict = {}
     # Collect all relevant files
-    for file_path in directory_path.rglob('*'):
+    all_paths = directory_path.rglob('*')
+    logging.info(f"Found {len(all_paths)} files in total. Determining Transcripts and Other files.")
+    for file_path in all_paths:
         # Exclude directories and focus on files only
         if file_path.is_file():
             # strip the extension and ignore txt files which are not transcripts
@@ -51,6 +54,7 @@ def load_files_into_memory(directory_path):
             if base_path not in file_dict:
                 file_dict[base_path] = []
             file_dict[base_path].append(file_path)
+    logging.info(f"Found a total of {len(transcript_files)} transcripts and {len(file_dict)} potential audio file indexes.")
     return transcript_files, file_dict
 
 
@@ -75,7 +79,7 @@ def build_audio_dataset_manifest(directory, output_file_name=None, language='', 
             transcript_path_str = str(transcript_path)
             base_path = transcript_path_str.rsplit('_transcript.txt', 1)[0]
             # find matching potential audio files with any extension
-            if base_path not in audio_files:
+            if base_path not in file_dict:
                 logging.warning(f"No matching audio file found for transcript file {transcript_path_str}.")
                 continue
             audio_files = file_dict[base_path]
