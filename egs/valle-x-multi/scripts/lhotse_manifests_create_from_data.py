@@ -141,9 +141,9 @@ def process_transcript(transcript_path, audio_file_path, language):
             force_opus_sampling_rate=24000,
             force_read_audio=True,
         )
-    except ReadTimeoutError as e:
+    except Exception as e:
         with logging_redirect_tqdm():
-            logging.warning(f"Decoding error when trying to read audio file '{audio_file_path}'. "
+            logging.warning(f"Decoding error when trying to read audio file '{audio_file_path}': {str(e)} "
                             f"File might be corrupted. Skipping...")
         return None
 
