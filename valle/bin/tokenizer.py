@@ -172,11 +172,6 @@ def process_manifests(args, accelerator, manifests_to_process):
             except Exception:
                 cut_set = m["cuts"].to_eager()
 
-            cut_set.trim_to_supervisions(
-                keep_overlapping=False,
-                num_jobs=args.threads_per_device
-            )
-
             # AudioTokenizer
             if args.audio_extractor:
                 if args.audio_extractor == "Encodec":
@@ -205,13 +200,14 @@ def process_manifests(args, accelerator, manifests_to_process):
                         torch.cuda.is_available()
                         and args.audio_extractor == "Encodec"
                     ):
-                        cut_set = cut_set.compute_and_store_features_batch(
+                        cut_set = cut_set.compute_and_store_features(
                             extractor=audio_extractor,
                             storage_path=storage_path,
-                            num_workers=args.threads_per_device,
-                            batch_duration=args.batch_duration,
-                            collate=False,
-                            overwrite=True,
+                            num_jobs=args.threads_per_device,
+                            # num_workers=args.threads_per_device,
+                            # batch_duration=args.batch_duration,
+                            # collate=False,
+                            # overwrite=True,
                             storage_type=NumpyHdf5Writer,
                         )
                     else:
