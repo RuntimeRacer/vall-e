@@ -21,7 +21,7 @@ def convert_to_target_format(file_path, target_format='.opus'):
     if target_format in str(file_path):
         logging.debug(f"Input file and output file have same format, creating secondary file")
         suffix_ext = '.new'
-        new_file_path = file_path.with_suffix(target_format + suffix_ext)
+        new_file_path = file_path.with_suffix(suffix_ext + target_format)
     else:
         new_file_path = file_path.with_suffix(target_format)
 
