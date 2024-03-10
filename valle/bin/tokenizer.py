@@ -165,8 +165,9 @@ def process_manifests(args, accelerator, manifests_to_process):
             # Ensure Manifest is not lazy
             try:
                 logging.info(f"creating CutSet for partition {partition}")
+                cuts_filename = f"{prefix}cuts_{partition}.{args.suffix}"
                 cut_set = create_cut_set_lazy(
-                    args.output_dir,
+                    f"{args.output_dir}/{cuts_filename}",
                     recordings=m["recordings"].to_eager(),
                     supervisions=m["supervisions"].to_eager(),
                 )
@@ -256,8 +257,8 @@ def process_manifests(args, accelerator, manifests_to_process):
                         c.supervisions[0].custom["tokens"] = {"text": phonemes}
                         unique_symbols.update(phonemes)
 
-            cuts_filename = f"{prefix}cuts_{partition}.{args.suffix}"
-            cut_set.to_file(f"{args.output_dir}/{cuts_filename}")
+            #cuts_filename = f"{prefix}cuts_{partition}.{args.suffix}"
+            #cut_set.to_file(f"{args.output_dir}/{cuts_filename}")
 
     if args.text_extractor:
         process_phonemes = SymbolTable()
