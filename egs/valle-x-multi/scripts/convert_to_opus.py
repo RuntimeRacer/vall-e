@@ -14,9 +14,9 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 
 def convert_to_opus(file_path):
     """
-    Convert an audio file to FLAC format at 24kHz sample rate and delete the original file.
+    Convert an audio file to OPUS format at 24kHz sample rate and Mono channel. delete the original file.
     """
-    # Construct the new filename with .flac extension
+    # Construct the new filename with .opus extension
     new_file_path = file_path.with_suffix('.opus')
 
     # Command to convert the file using ffmpeg
@@ -29,6 +29,8 @@ def convert_to_opus(file_path):
         str(file_path),
         '-ar',
         '24000',
+        '-ac',
+        '1'
         "-threads",
         str(1),
         str(new_file_path)
@@ -40,9 +42,13 @@ def convert_to_opus(file_path):
 
         # If conversion was successful, delete the original file
         if result == 0:
-            os.remove(file_path)
-            with logging_redirect_tqdm():
-                logging.debug(f"Converted and deleted {file_path}")
+            if '.opus' in file_path:
+                with logging_redirect_tqdm():
+                    logging.debug(f"Resampled {file_path}")
+            else:
+                os.remove(file_path)
+                with logging_redirect_tqdm():
+                    logging.debug(f"Converted and deleted {file_path}")
         else:
             with logging_redirect_tqdm():
                 logging.error(f"Failed to convert {file_path}")

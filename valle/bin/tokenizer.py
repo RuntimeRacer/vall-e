@@ -200,14 +200,13 @@ def process_manifests(args, accelerator, manifests_to_process):
                         torch.cuda.is_available()
                         and args.audio_extractor == "Encodec"
                     ):
-                        cut_set = cut_set.compute_and_store_features(
+                        cut_set = cut_set.compute_and_store_features_batch(
                             extractor=audio_extractor,
                             storage_path=storage_path,
-                            num_jobs=args.threads_per_device,
-                            # num_workers=args.threads_per_device,
-                            # batch_duration=args.batch_duration,
-                            # collate=False,
-                            # overwrite=True,
+                            num_workers=args.threads_per_device,
+                            batch_duration=args.batch_duration,
+                            collate=False,
+                            overwrite=True,
                             storage_type=NumpyHdf5Writer,
                         )
                     else:
