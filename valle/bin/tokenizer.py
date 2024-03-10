@@ -163,14 +163,13 @@ def process_manifests(args, accelerator, manifests_to_process):
                 f"Processing partition: {partition}"
             )
             # Ensure Manifest is not lazy
-            m = m.to_eager()
             try:
                 cut_set = CutSet.from_manifests(
-                    recordings=m["recordings"],
-                    supervisions=m["supervisions"],
+                    recordings=m["recordings"].to_eager(),
+                    supervisions=m["supervisions"].to_eager(),
                 )
             except Exception:
-                cut_set = m["cuts"]
+                cut_set = m["cuts"].to_eager()
 
             # AudioTokenizer
             if args.audio_extractor:
