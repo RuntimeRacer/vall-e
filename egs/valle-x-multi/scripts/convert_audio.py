@@ -21,7 +21,8 @@ def convert_to_target_format(file_path, target_format='.opus'):
     if target_format in str(file_path):
         logging.debug(f"Input file and output file have same format, creating secondary file")
         suffix_ext = '.new'
-        new_file_path = file_path.with_suffix(suffix_ext + target_format)
+        new_suffix = suffix_ext + target_format
+        new_file_path = file_path.with_suffix(new_suffix)
     else:
         new_file_path = file_path.with_suffix(target_format)
 
@@ -41,6 +42,8 @@ def convert_to_target_format(file_path, target_format='.opus'):
         str(1),
         str(new_file_path)
     ]
+
+    logging.info(command)
 
     try:
         # Execute the ffmpeg command
