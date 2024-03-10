@@ -108,6 +108,8 @@ mark_valle_version(VALLE_VERSION)
 install_requires = [
     "encodec",
     "phonemizer",
+    "h5py",
+    "matplotlib"
 ]
 
 try:
