@@ -32,7 +32,7 @@ from anyascii import anyascii
 import torch
 import torch.multiprocessing
 from icefall.utils import get_executor
-from lhotse import CutSet, NumpyHdf5Writer
+from lhotse import CutSet, NumpyHdf5Writer, create_cut_set_lazy
 from lhotse.recipes.utils import read_manifests_if_cached
 from tqdm.auto import tqdm
 
@@ -165,7 +165,8 @@ def process_manifests(args, accelerator, manifests_to_process):
             # Ensure Manifest is not lazy
             try:
                 logging.info(f"creating CutSet for partition {partition}")
-                cut_set = CutSet.from_manifests(
+                cut_set = create_cut_set_lazy(
+                    args.output_dir,
                     recordings=m["recordings"].to_eager(),
                     supervisions=m["supervisions"].to_eager(),
                 )
