@@ -12,26 +12,21 @@ from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 
-def convert_to_opus(file_path):
+def check_files_and_invalidate_broken(file_path):
     """
-    Convert an audio file to FLAC format at 24kHz sample rate and delete the original file.
+    Check for errors in decoding an audio file, and remove the file if it cannot be decoded
     """
-    # Construct the new filename with .flac extension
-    new_file_path = file_path.with_suffix('.opus')
 
     # Command to convert the file using ffmpeg
     command = [
         'ffmpeg',
         "-y",
-        "-loglevel",
-        "fatal",
+        "-xerror",
         '-i',
         str(file_path),
-        '-ar',
-        '24000',
-        "-threads",
-        str(1),
-        str(new_file_path)
+        "-f",
+        "null",
+        "-"
     ]
 
     try:
@@ -40,15 +35,15 @@ def convert_to_opus(file_path):
 
         # If conversion was successful, delete the original file
         if result == 0:
-            os.remove(file_path)
             with logging_redirect_tqdm():
-                logging.debug(f"Converted and deleted {file_path}")
+                logging.debug(f"File {file_path} ik OK.")
         else:
             with logging_redirect_tqdm():
-                logging.error(f"Failed to convert {file_path}")
+                logging.error(f"File {file_path} is broken. Removing...")
+            # os.remove(file_path)
     except Exception as e:
         with logging_redirect_tqdm():
-            logging.error(f"Error converting {file_path}: {e}")
+            logging.error(f"Error validating {file_path}: {e}")
 
 
 def find_files(root_dir):
@@ -68,7 +63,7 @@ def convert_files(root_dir, threads):
     """
     files_to_convert = list(find_files(root_dir))
     with ProcessPoolExecutor(threads) as executor:
-        list(tqdm(executor.map(convert_to_opus, files_to_convert), total=len(files_to_convert)))
+        list(tqdm(executor.map(check_files_and_invalidate_broken, files_to_convert), total=len(files_to_convert)))
 
 
 if __name__ == '__main__':
