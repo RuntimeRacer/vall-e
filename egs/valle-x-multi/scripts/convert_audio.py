@@ -12,12 +12,18 @@ from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 
-def convert_to_flac(file_path):
+def convert_to_target_format(file_path, target_format='.opus'):
     """
-    Convert an audio file to FLAC format at 24kHz sample rate and delete the original file.
+    Convert an audio file to OPUS format at 24kHz sample rate and Mono channel. delete the original file.
     """
-    # Construct the new filename with .flac extension
-    new_file_path = file_path.with_suffix('.flac')
+    # Construct the new filename with .opus extension
+    suffix_ext = ''
+    if target_format in file_path:
+        logging.debug(f"Input file and output file have same format, creating secondary file")
+        suffix_ext = '.new'
+        new_file_path = file_path.with_suffix(target_format + suffix_ext)
+    else:
+        new_file_path = file_path.with_suffix(target_format)
 
     # Command to convert the file using ffmpeg
     command = [
@@ -42,9 +48,15 @@ def convert_to_flac(file_path):
 
         # If conversion was successful, delete the original file
         if result == 0:
-            os.remove(file_path)
-            with logging_redirect_tqdm():
-                logging.debug(f"Converted and deleted {file_path}")
+            if suffix_ext != '':
+                os.remove(file_path)
+                os.rename(new_file_path, file_path)
+                with logging_redirect_tqdm():
+                    logging.debug(f"Resampled {file_path}")
+            else:
+                os.remove(file_path)
+                with logging_redirect_tqdm():
+                    logging.debug(f"Converted and deleted {file_path}")
         else:
             with logging_redirect_tqdm():
                 logging.error(f"Failed to convert {file_path}")
@@ -64,13 +76,25 @@ def find_files(root_dir):
                 yield Path(root) / file
 
 
-def convert_files(root_dir, threads):
+def convert_files(root_dir, target_format, threads):
     """
     Find all supported audio files in the directory tree and convert them to FLAC using multiple processes.
     """
     files_to_convert = list(find_files(root_dir))
-    with ProcessPoolExecutor(threads) as executor:
-        list(tqdm(executor.map(convert_to_flac, files_to_convert), total=len(files_to_convert)))
+    with ProcessPoolExecutor(threads) as ex:
+        futures = []
+
+        for file_path in tqdm( files_to_convert, desc="Converting files", leave=False):
+            # Submit to processing
+            futures.append(
+                ex.submit(convert_to_target_format, file_path, target_format)
+            )
+
+        # Just wait for processing to be done here
+        for future in tqdm(futures, desc="Processing", leave=False):
+            future.result()
+
+    logging.info(f"Finished {len(futures)} conversion jobs.")
 
 
 if __name__ == '__main__':
@@ -86,8 +110,9 @@ if __name__ == '__main__':
     # Parse from arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--dir", type=str, help="dir with audio files and transcripts")
+    parser.add_argument("-f", "--target-format", type=str, default='.opus', help="target format")
     parser.add_argument("-t", "--threads", type=int, default=16, help="processing threads to use")
 
     # Run
     args = parser.parse_args()
-    convert_files(args.dir, args.threads)
+    convert_files(args.dir, args.target_format, args.threads)

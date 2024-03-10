@@ -32,7 +32,7 @@ from anyascii import anyascii
 import torch
 import torch.multiprocessing
 from icefall.utils import get_executor
-from lhotse import CutSet, NumpyHdf5Writer, create_cut_set_lazy
+from lhotse import CutSet, NumpyHdf5Writer
 from lhotse.recipes.utils import read_manifests_if_cached
 from tqdm.auto import tqdm
 
@@ -165,9 +165,7 @@ def process_manifests(args, accelerator, manifests_to_process):
             # Ensure Manifest is not lazy
             try:
                 logging.info(f"creating CutSet for partition {partition}")
-                cuts_filename = f"{prefix}cuts_{partition}.{args.suffix}"
-                cut_set = create_cut_set_lazy(
-                    f"{args.output_dir}/{cuts_filename}",
+                cut_set = CutSet.from_manifests(
                     recordings=m["recordings"].to_eager(),
                     supervisions=m["supervisions"].to_eager(),
                 )
@@ -257,8 +255,8 @@ def process_manifests(args, accelerator, manifests_to_process):
                         c.supervisions[0].custom["tokens"] = {"text": phonemes}
                         unique_symbols.update(phonemes)
 
-            #cuts_filename = f"{prefix}cuts_{partition}.{args.suffix}"
-            #cut_set.to_file(f"{args.output_dir}/{cuts_filename}")
+            cuts_filename = f"{prefix}cuts_{partition}.{args.suffix}"
+            cut_set.to_file(f"{args.output_dir}/{cuts_filename}")
 
     if args.text_extractor:
         process_phonemes = SymbolTable()
