@@ -158,7 +158,7 @@ def process_manifests(args, accelerator, manifests_to_process):
     logging.info(f"Process using Device: {accelerator.device}")
 
     with get_executor() as ex:
-        for partition, m in manifests_to_process:
+        for partition, m in manifests_to_process.items():
             logging.info(
                 f"Processing partition: {partition}"
             )
@@ -316,10 +316,7 @@ if __name__ == "__main__":
     manifest_idx = accelerator.process_index
     manifest_keys = list(manifests.keys())
     while manifest_idx < len(manifests):
-        manifest = {
-            manifest_keys[manifest_idx]: manifests[manifest_keys[manifest_idx]]
-        }
-        manifests_to_process.append(manifest)
+        manifests_to_process.append(manifests[manifest_keys[manifest_idx]])
         manifest_idx += accelerator.num_processes
 
     # Process Manifests
