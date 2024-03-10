@@ -47,7 +47,8 @@ def convert_to_flac(file_path):
             with logging_redirect_tqdm():
                 logging.error(f"Failed to convert {file_path}")
     except Exception as e:
-        logging.error(f"Error converting {file_path}: {e}")
+        with logging_redirect_tqdm():
+            logging.error(f"Error converting {file_path}: {e}")
 
 
 def find_files(root_dir):
