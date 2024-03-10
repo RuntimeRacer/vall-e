@@ -164,6 +164,7 @@ def process_manifests(args, accelerator, manifests_to_process):
             )
             # Ensure Manifest is not lazy
             try:
+                logging.info(f"creating CutSet for partition {partition}")
                 cut_set = CutSet.from_manifests(
                     recordings=m["recordings"].to_eager(),
                     supervisions=m["supervisions"].to_eager(),
@@ -183,6 +184,7 @@ def process_manifests(args, accelerator, manifests_to_process):
                     )
 
                 if args.prefix.lower() in ["ljspeech", "aishell", "baker", "commonvoice", "vall-e-x"]:
+                    logging.info(f"resampling CutSet audio for partition {partition}")
                     cut_set = cut_set.resample(24000)
                     # https://github.com/lifeiteng/vall-e/issues/90
                     # if args.prefix == "aishell":
@@ -193,6 +195,7 @@ def process_manifests(args, accelerator, manifests_to_process):
                     #     )
 
                 with torch.no_grad():
+                    logging.info(f"Extracting CutSet features for partition {partition}")
                     if (
                         torch.cuda.is_available()
                         and args.audio_extractor == "Encodec"
@@ -217,6 +220,7 @@ def process_manifests(args, accelerator, manifests_to_process):
 
             # TextTokenizer
             if args.text_extractor:
+                logging.info(f"Extracting CutSet phonemes for partition {partition}")
                 if (
                     args.prefix == "baker"
                     and args.text_extractor == "labeled_pinyin"
@@ -346,4 +350,7 @@ if __name__ == "__main__":
                 subprocess_phonemes_file = f"{args.output_dir}/{args.symbols_file}_{proc_idx}"
                 subprocess_phonemes.from_file(subprocess_phonemes_file)
                 unique_phonemes.merge(subprocess_phonemes)
+
+            # Save Combined Phonemes File
+            unique_phonemes.to_file(unique_phonemes_file)
 
