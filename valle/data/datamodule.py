@@ -413,19 +413,10 @@ class TtsDataModule:
             return load_manifest_lazy(self.args.manifest_dir / "cuts_train.jsonl.gz")
 
     @lru_cache()
-    def dev_cuts(self) -> CutSet:
-        logging.info("About to get dev cuts")
+    def validation_cuts(self) -> CutSet:
+        logging.info("About to get validation cuts")
         if self.args.randomize_cuts:
             logging.info("randomize-cuts active...")
-            return load_manifest_lazy(self.args.manifest_dir / "cuts_dev_rdx.jsonl.gz")
+            return load_manifest_lazy(self.args.manifest_dir / "cuts_validation_rdx.jsonl.gz")
         else:
-            return load_manifest_lazy(self.args.manifest_dir / "cuts_dev.jsonl.gz")
-
-    @lru_cache()
-    def test_cuts(self) -> CutSet:
-        logging.info("About to get test cuts")
-        if self.args.randomize_cuts:
-            logging.info("randomize-cuts active...")
-            return load_manifest_lazy(self.args.manifest_dir / "cuts_test_rdx.jsonl.gz")
-        else:
-            return load_manifest_lazy(self.args.manifest_dir / "cuts_test.jsonl.gz")
+            return load_manifest_lazy(self.args.manifest_dir / "cuts_validation.jsonl.gz")

@@ -1024,7 +1024,7 @@ def run(rank, world_size, args):
 
     dataset = TtsDataModule(args)
     train_cuts = dataset.train_cuts()
-    valid_cuts = dataset.dev_cuts()
+    valid_cuts = dataset.validation_cuts()
 
     train_cuts = filter_short_and_long_utterances(
         train_cuts, params.filter_min_duration, params.filter_max_duration
@@ -1177,13 +1177,9 @@ def main():
 
     if args.randomize_cuts and not os.path.isfile(f"{args.manifest_dir}/cuts_train_rdx.jsonl.gz"):
         print("Randomizing cuts. This can take a while, but is only required once...")
-        dev_cuts = lhotse.load_manifest(args.manifest_dir / "cuts_dev.jsonl.gz")
-        dev_cuts = dev_cuts.shuffle()
-        dev_cuts.to_file(f"{args.manifest_dir}/cuts_dev_rdx.jsonl.gz")
-
-        test_cuts = lhotse.load_manifest(args.manifest_dir / "cuts_test.jsonl.gz")
-        test_cuts = test_cuts.shuffle()
-        test_cuts.to_file(f"{args.manifest_dir}/cuts_test_rdx.jsonl.gz")
+        validation_cuts = lhotse.load_manifest(args.manifest_dir / "cuts_validation.jsonl.gz")
+        validation_cuts = validation_cuts.shuffle()
+        validation_cuts.to_file(f"{args.manifest_dir}/cuts_validation_rdx.jsonl.gz")
 
         train_cuts = lhotse.load_manifest(args.manifest_dir / "cuts_train.jsonl.gz")
         train_cuts = train_cuts.shuffle()

@@ -759,7 +759,7 @@ class VALLE(VALLF):
         x_lens: torch.Tensor,
         y: Union[torch.Tensor, PromptedFeatures],
         y_lens: Union[torch.Tensor, PromptedFeatures],
-        languages: torch.Tensor,
+        language_ids: torch.Tensor,
         reduction: str = "sum",
         train_stage: int = 0,
         **kwargs,
@@ -823,7 +823,7 @@ class VALLE(VALLF):
         if train_stage in [0, 1]:
             x = self.ar_text_embedding(text)
             # Add language embedding
-            language_embed = self.ar_language_embedding(languages)
+            language_embed = self.ar_language_embedding(language_ids)
             language_embed = language_embed.unsqueeze(1)
             x += language_embed
             x = self.ar_text_prenet(x)
@@ -897,7 +897,7 @@ class VALLE(VALLF):
 
             x = self.nar_text_embedding(text)
             # Add language embedding
-            language_embed = self.nar_language_embedding(languages)
+            language_embed = self.nar_language_embedding(language_ids)
             language_embed = language_embed.unsqueeze(1)
             x += language_embed
             x = self.nar_text_prenet(x)

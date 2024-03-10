@@ -118,10 +118,10 @@ def build_audio_dataset_manifest(directory, output_file_name=None, language='', 
 
     if output_file_name is not None:
         supervision_set.to_file(
-            f"{output_file_name}_supervisions.jsonl.gz"
+            f"{output_file_name}_supervisions_{language}.jsonl.gz"
         )
         recording_set.to_file(
-            f"{output_file_name}_recordings.jsonl.gz"
+            f"{output_file_name}_recordings_{language}.jsonl.gz"
         )
 
 

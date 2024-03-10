@@ -23,7 +23,10 @@ Usage example:
 import argparse
 import logging
 import os
+import time
 from pathlib import Path
+
+from accelerate import Accelerator
 
 from anyascii import anyascii
 import torch
@@ -112,62 +115,55 @@ def get_args():
         default=False,
         help="Internally transcribe all texts into ascii using anyascii.",
     )
+    parser.add_argument(
+        "--symbols-file",
+        type=str,
+        default="unique_text_tokens.k2symbols",
+        help="Path to a token file",
+    )
+    parser.add_argument(
+        "--threads-per-device",
+        type=int,
+        default=8,
+        help="Threads to use per device for processing",
+    )
 
     return parser.parse_args()
 
 
-def main():
-    args = get_args()
-
-    dataset_parts = args.dataset_parts.replace("--dataset-parts", "").strip()
-    if dataset_parts == "all":  # LibriTTS
-        dataset_parts = [
-            "dev-clean",
-            "dev-other",
-            "test-clean",
-            "test-other",
-            "train-clean-100",
-            "train-clean-360",
-            "train-other-500",
-        ]
-    else:
-        dataset_parts = dataset_parts.replace("-p", "").strip().split(" ")
-
-    assert len(dataset_parts) >= 1
-
-    manifests = read_manifests_if_cached(
-        dataset_parts=dataset_parts,
-        output_dir=args.src_dir,
-        prefix=args.prefix,
-        suffix=args.suffix,
-        types=["recordings", "supervisions", "cuts"],
-    )
+def process_manifests(args, accelerator, manifests_to_process):
 
     text_tokenizer = None
     if args.text_extractor:
         text_tokenizer = TextTokenizer(backend=args.text_extractor)
 
-    audio_extractor = None
-    if args.audio_extractor:
-        if args.audio_extractor == "Encodec":
-            audio_extractor = AudioTokenExtractor(AudioTokenConfig())
-        else:
-            assert args.audio_extractor == "Fbank"
-            audio_extractor = get_fbank_extractor()
-
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+
     unique_symbols = set()
-    num_jobs = min(32, os.cpu_count())
-    logging.info(f"dataset_parts: {dataset_parts} manifests {len(manifests)}")
 
     prefix = args.prefix
     if prefix and not prefix.endswith("_"):
         prefix = f"{prefix}_"
+
+    logging.info(f"CUDA available: {torch.cuda.is_available()}")
+
+    audio_extractor = None
+    if args.audio_extractor:
+        if args.audio_extractor == "Encodec":
+            audio_extractor = AudioTokenExtractor(AudioTokenConfig(), device=accelerator.device)
+        else:
+            assert args.audio_extractor == "Fbank"
+            audio_extractor = get_fbank_extractor()
+
+    logging.info(f"Process using Device: {accelerator.device}")
+
     with get_executor() as ex:
-        for partition, m in manifests.items():
+        for partition, m in manifests_to_process:
             logging.info(
-                f"Processing partition: {partition} CUDA: {torch.cuda.is_available()}"
+                f"Processing partition: {partition}"
             )
+            # Ensure Manifest is not lazy
+            m = m.to_eager()
             try:
                 cut_set = CutSet.from_manifests(
                     recordings=m["recordings"],
@@ -187,7 +183,7 @@ def main():
                         f"{args.output_dir}/{args.prefix}_fbank_{partition}"
                     )
 
-                if args.prefix.lower() in ["ljspeech", "aishell", "baker", "commonvoice"]:
+                if args.prefix.lower() in ["ljspeech", "aishell", "baker", "commonvoice", "vall-e-x"]:
                     cut_set = cut_set.resample(24000)
                     # https://github.com/lifeiteng/vall-e/issues/90
                     # if args.prefix == "aishell":
@@ -205,7 +201,7 @@ def main():
                         cut_set = cut_set.compute_and_store_features_batch(
                             extractor=audio_extractor,
                             storage_path=storage_path,
-                            num_workers=num_jobs,
+                            num_workers=args.threads,
                             batch_duration=args.batch_duration,
                             collate=False,
                             overwrite=True,
@@ -215,7 +211,7 @@ def main():
                         cut_set = cut_set.compute_and_store_features(
                             extractor=audio_extractor,
                             storage_path=storage_path,
-                            num_jobs=num_jobs if ex is None else 64,
+                            num_jobs=args.threads if ex is None else 64,
                             executor=ex,
                             storage_type=NumpyHdf5Writer,
                         )
@@ -260,13 +256,18 @@ def main():
             cut_set.to_file(f"{args.output_dir}/{cuts_filename}")
 
     if args.text_extractor:
-        unique_phonemes = SymbolTable()
-        for s in sorted(list(unique_symbols)):
-            unique_phonemes.add(s)
-        logging.info(f"{len(unique_symbols)} unique phonemes: {unique_symbols}")
+        process_phonemes = SymbolTable()
+        process_phonemes_file = f"{args.output_dir}/{args.symbols_file}_{accelerator.local_process_index}"
 
-        unique_phonemes_file = f"{args.output_dir}/unique_text_tokens.k2symbols"
-        unique_phonemes.to_file(unique_phonemes_file)
+        # reuse symbols file in case we want to extend existing training data with a new language
+        if Path(process_phonemes_file).is_file():
+            process_phonemes.from_file(process_phonemes_file)
+
+        for s in sorted(list(unique_symbols)):
+            process_phonemes.add(s)
+
+        logging.info(f"Process Group {accelerator.local_process_index}: {len(unique_symbols)} unique phonemes.")
+        process_phonemes.to_file(process_phonemes_file)
 
 
 if __name__ == "__main__":
@@ -274,4 +275,74 @@ if __name__ == "__main__":
         "%(asctime)s %(levelname)s [%(filename)s:%(lineno)d] %(message)s"
     )
     logging.basicConfig(format=formatter, level=logging.INFO)
-    main()
+
+    # Get args
+    args = get_args()
+
+    # Read Manifests
+    dataset_parts = args.dataset_parts.replace("--dataset-parts", "").strip()
+    if dataset_parts == "all":  # LibriTTS
+        dataset_parts = [
+            "dev-clean",
+            "dev-other",
+            "test-clean",
+            "test-other",
+            "train-clean-100",
+            "train-clean-360",
+            "train-other-500",
+        ]
+    else:
+        dataset_parts = dataset_parts.replace("-p", "").strip().split(" ")
+
+    assert len(dataset_parts) >= 1
+
+    manifests = read_manifests_if_cached(
+        dataset_parts=dataset_parts,
+        output_dir=args.src_dir,
+        prefix=args.prefix,
+        suffix=args.suffix,
+        types=["recordings", "supervisions", "cuts"],
+        lazy=True
+    )
+    logging.info(f"dataset_parts: {dataset_parts} manifests {len(manifests)}")
+
+    # Use Accelerator for speedup of this pre-processing
+    accelerator = Accelerator()
+
+    # Distribute Manifest Elements across processes
+    manifests_to_process = []
+    manifest_idx = accelerator.process_index
+    manifest_keys = list(manifests.keys())
+    while manifest_idx < len(manifests):
+        manifests_to_process.append(manifests[manifest_keys[manifest_idx]])
+        manifest_idx += accelerator.num_processes
+
+    # Process Manifests
+    process_manifests(args, accelerator, manifests_to_process)
+
+    # Wait for all processes to finish
+    accelerator.wait_for_everyone()
+
+    # Only do this on the main process
+    with accelerator.local_main_process_first():
+        if accelerator.is_local_main_process:
+            logging.info("Combining results of different processing threads...")
+            # Wait for 5 seconds to incorporate potential IO delays
+            time.sleep(5)
+
+            # Get global Symbols file
+            unique_phonemes = SymbolTable()
+            unique_phonemes_file = f"{args.output_dir}/{args.symbols_file}"
+
+            # reuse symbols file in case we want to extend existing training data with a new language
+            if Path(unique_phonemes_file).is_file():
+                unique_phonemes.from_file(args.symbols_file)
+
+            # Combine all Symbol files in main process
+            for proc_idx in range(accelerator.num_processes):
+                logging.info(f"Adding Phonemes from process group {proc_idx} ...")
+                subprocess_phonemes = SymbolTable()
+                subprocess_phonemes_file = f"{args.output_dir}/{args.symbols_file}_{proc_idx}"
+                subprocess_phonemes.from_file(subprocess_phonemes_file)
+                unique_phonemes.merge(subprocess_phonemes)
+
