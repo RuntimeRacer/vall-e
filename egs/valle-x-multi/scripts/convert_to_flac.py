@@ -9,6 +9,7 @@ from logging import Formatter
 from pathlib import Path
 
 from tqdm import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 
 def convert_to_flac(file_path):
@@ -39,10 +40,12 @@ def convert_to_flac(file_path):
 
         # If conversion was successful, delete the original file
         if result == 0:
-            # os.remove(file_path)
-            logging.debug(f"Converted and deleted {file_path}")
+            os.remove(file_path)
+            with logging_redirect_tqdm():
+                logging.debug(f"Converted and deleted {file_path}")
         else:
-            logging.error(f"Failed to convert {file_path}")
+            with logging_redirect_tqdm():
+                logging.error(f"Failed to convert {file_path}")
     except Exception as e:
         logging.error(f"Error converting {file_path}: {e}")
 
