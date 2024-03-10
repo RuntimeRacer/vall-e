@@ -174,7 +174,7 @@ def process_manifests(args, accelerator, manifests_to_process):
 
             cut_set.trim_to_supervisions(
                 keep_overlapping=False,
-                num_jobs=args.args.threads_per_device
+                num_jobs=args.threads_per_device
             )
 
             # AudioTokenizer
