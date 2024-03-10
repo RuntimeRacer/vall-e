@@ -203,7 +203,7 @@ def process_manifests(args, accelerator, manifests_to_process):
                         cut_set = cut_set.compute_and_store_features_batch(
                             extractor=audio_extractor,
                             storage_path=storage_path,
-                            num_workers=args.threads,
+                            num_workers=args.threads_per_device,
                             batch_duration=args.batch_duration,
                             collate=False,
                             overwrite=True,
@@ -213,7 +213,7 @@ def process_manifests(args, accelerator, manifests_to_process):
                         cut_set = cut_set.compute_and_store_features(
                             extractor=audio_extractor,
                             storage_path=storage_path,
-                            num_jobs=args.threads if ex is None else 64,
+                            num_jobs=args.threads_per_device if ex is None else 64,
                             executor=ex,
                             storage_type=NumpyHdf5Writer,
                         )
