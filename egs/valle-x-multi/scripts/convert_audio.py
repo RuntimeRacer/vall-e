@@ -37,7 +37,7 @@ def convert_to_target_format(file_path, target_format='.opus'):
         '-ar',
         '24000',
         '-ac',
-        '1'
+        '1',
         "-threads",
         str(1),
         str(new_file_path)
