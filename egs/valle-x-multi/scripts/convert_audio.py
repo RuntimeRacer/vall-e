@@ -57,12 +57,15 @@ def convert_to_target_format(file_path, target_format='.opus'):
                 os.remove(file_path)
                 with logging_redirect_tqdm():
                     logging.debug(f"Converted and deleted {file_path}")
+            return True
         else:
             with logging_redirect_tqdm():
                 logging.error(f"Failed to convert {file_path}")
+            return False
     except Exception as e:
         with logging_redirect_tqdm():
             logging.error(f"Error converting {file_path}: {e}")
+        return False
 
 
 def find_files(root_dir):
@@ -84,7 +87,7 @@ def convert_files(root_dir, target_format, threads):
     with ProcessPoolExecutor(threads) as ex:
         futures = []
 
-        for file_path in tqdm( files_to_convert, desc="Converting files", leave=False):
+        for file_path in tqdm( files_to_convert, desc="Creating Tasks", leave=False):
             # Submit to processing
             futures.append(
                 ex.submit(convert_to_target_format, file_path, target_format)
@@ -92,7 +95,7 @@ def convert_files(root_dir, target_format, threads):
 
         # Just wait for processing to be done here
         for future in tqdm(futures, desc="Processing", leave=False):
-            future.result()
+            _ = future.result()
 
     logging.info(f"Finished {len(futures)} conversion jobs.")
 
