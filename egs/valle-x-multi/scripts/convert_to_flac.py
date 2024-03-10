@@ -29,6 +29,8 @@ def convert_to_flac(file_path):
         str(file_path),
         '-ar',
         '24000',
+        '-ac',
+        '1'
         "-threads",
         str(1),
         str(new_file_path)
