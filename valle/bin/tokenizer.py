@@ -172,6 +172,11 @@ def process_manifests(args, accelerator, manifests_to_process):
             except Exception:
                 cut_set = m["cuts"].to_eager()
 
+            cut_set.trim_to_supervisions(
+                keep_overlapping=False,
+                num_jobs=args.args.threads_per_device
+            )
+
             # AudioTokenizer
             if args.audio_extractor:
                 if args.audio_extractor == "Encodec":
