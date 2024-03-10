@@ -138,8 +138,8 @@ def process_transcript(transcript_path, audio_file_path, language):
         recording = Recording.from_file(
             audio_file_path,
             recording_id=recording_id,
-            force_opus_sampling_rate=24000,
-            force_read_audio=True,
+            # force_opus_sampling_rate=24000,
+            # force_read_audio=True,
         )
     except Exception as e:
         with logging_redirect_tqdm():

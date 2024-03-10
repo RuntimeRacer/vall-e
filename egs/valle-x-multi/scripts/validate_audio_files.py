@@ -40,7 +40,7 @@ def check_files_and_invalidate_broken(file_path):
         else:
             with logging_redirect_tqdm():
                 logging.error(f"File {file_path} is broken. Removing...")
-            # os.remove(file_path)
+            os.remove(file_path)
     except Exception as e:
         with logging_redirect_tqdm():
             logging.error(f"Error validating {file_path}: {e}")
