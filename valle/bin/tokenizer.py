@@ -312,11 +312,11 @@ if __name__ == "__main__":
     accelerator = Accelerator()
 
     # Distribute Manifest Elements across processes
-    manifests_to_process = []
+    manifests_to_process = {}
     manifest_idx = accelerator.process_index
     manifest_keys = list(manifests.keys())
     while manifest_idx < len(manifests):
-        manifests_to_process.append(manifests[manifest_keys[manifest_idx]])
+        manifests_to_process[manifest_keys[manifest_idx]] = manifests[manifest_keys[manifest_idx]]
         manifest_idx += accelerator.num_processes
 
     # Process Manifests
