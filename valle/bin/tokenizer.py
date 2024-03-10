@@ -306,6 +306,8 @@ if __name__ == "__main__":
     )
     logging.info(f"dataset_parts: {dataset_parts} manifests {len(manifests)}")
 
+    assert len(manifests) >= 1
+
     # Use Accelerator for speedup of this pre-processing
     accelerator = Accelerator()
 
