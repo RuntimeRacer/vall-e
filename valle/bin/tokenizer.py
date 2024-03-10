@@ -316,7 +316,10 @@ if __name__ == "__main__":
     manifest_idx = accelerator.process_index
     manifest_keys = list(manifests.keys())
     while manifest_idx < len(manifests):
-        manifests_to_process.append(manifests[manifest_keys[manifest_idx]])
+        manifest = {
+            manifest_keys[manifest_idx]: manifests[manifest_keys[manifest_idx]]
+        }
+        manifests_to_process.append(manifest)
         manifest_idx += accelerator.num_processes
 
     # Process Manifests
