@@ -11,7 +11,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 
-def convert_to_flac(file_path):
+def convert_to_flac(file_path, sample_rate):
     """
     Convert an audio file to FLAC format at 24kHz sample rate and delete the original file.
     """
@@ -27,7 +27,7 @@ def convert_to_flac(file_path):
         '-i',
         str(file_path),
         '-ar',
-        '24000',
+        str(sample_rate),
         "-threads",
         str(1),
         str(new_file_path)
@@ -51,20 +51,20 @@ def find_files(root_dir):
     """
     Generate a list of file paths for supported audio formats within the given directory tree.
     """
-    supported_extensions = ['.opus', '.ogg', '.mp3', '.wav', '.m4a']
+    supported_extensions = ['.opus', '.ogg', '.mp3', '.wav', '.m4a', '.flac']
     for root, dirs, files in os.walk(root_dir):
         for file in files:
             if Path(file).suffix in supported_extensions:
                 yield Path(root) / file
 
 
-def convert_files(root_dir, threads):
+def convert_files(root_dir, sample_rate, threads):
     """
     Find all supported audio files in the directory tree and convert them to FLAC using multiple processes.
     """
     files_to_convert = list(find_files(root_dir))
     with ProcessPoolExecutor(threads) as executor:
-        list(tqdm(executor.map(convert_to_flac, files_to_convert), total=len(files_to_convert)))
+        list(tqdm(executor.map(convert_to_flac, files_to_convert, sample_rate), total=len(files_to_convert)))
 
 
 if __name__ == '__main__':
@@ -80,8 +80,9 @@ if __name__ == '__main__':
     # Parse from arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--dir", type=str, help="dir with audio files and transcripts")
+    parser.add_argument("-sr", "--sample_rate", type=int, default=24000, help="target sample rate")
     parser.add_argument("-t", "--threads", type=int, default=16, help="processing threads to use")
 
     # Run
     args = parser.parse_args()
-    convert_files(args.dir, args.threads)
+    convert_files(args.dir, args.sample_rate, args.threads)
