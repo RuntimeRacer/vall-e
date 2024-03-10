@@ -29,10 +29,10 @@ from lhotse.dataset import (
     CutConcatenate,
     DynamicBucketingSampler,
     PrecomputedFeatures,
-    SingleCutSampler,
     SpecAugment,
 )
 from lhotse.dataset.input_strategies import OnTheFlyFeatures
+from lhotse.dataset.sampling import SimpleCutSampler
 from lhotse.utils import fix_random_seed
 from torch.utils.data import DataLoader
 
@@ -314,10 +314,10 @@ class TtsDataModule:
             )
         else:
             logging.info(
-                "Using SingleCutSampler and sort by duraton(ascending=True)."
+                "Using SimpleCutSampler and sort by duraton(ascending=True)."
             )
             cuts_train = cuts_train.to_eager().sort_by_duration(ascending=True)
-            train_sampler = SingleCutSampler(
+            train_sampler = SimpleCutSampler(
                 cuts_train,
                 max_duration=self.args.max_duration,
                 shuffle=self.args.shuffle,
