@@ -11,7 +11,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 
-def convert_to_flac(file_path, sample_rate):
+def convert_to_flac(file_path):
     """
     Convert an audio file to FLAC format at 24kHz sample rate and delete the original file.
     """
