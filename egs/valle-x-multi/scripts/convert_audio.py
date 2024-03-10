@@ -43,7 +43,7 @@ def convert_to_target_format(file_path, target_format='.opus'):
         str(new_file_path)
     ]
 
-    logging.info(command)
+    # logging.info(command)
 
     try:
         # Execute the ffmpeg command
