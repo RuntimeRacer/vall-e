@@ -18,7 +18,7 @@ def convert_to_target_format(file_path, target_format='.opus'):
     """
     # Construct the new filename with .opus extension
     suffix_ext = ''
-    if target_format in file_path:
+    if target_format in str(file_path):
         logging.debug(f"Input file and output file have same format, creating secondary file")
         suffix_ext = '.new'
         new_file_path = file_path.with_suffix(target_format + suffix_ext)
@@ -87,7 +87,7 @@ def convert_files(root_dir, target_format, threads):
     with ProcessPoolExecutor(threads) as ex:
         futures = []
 
-        for file_path in tqdm( files_to_convert, desc="Creating Tasks", leave=False):
+        for file_path in tqdm(files_to_convert, desc="Creating Tasks", leave=False):
             # Submit to processing
             futures.append(
                 ex.submit(convert_to_target_format, file_path, target_format)
