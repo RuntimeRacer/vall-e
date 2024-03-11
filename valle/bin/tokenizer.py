@@ -205,7 +205,7 @@ def process_manifests(args, accelerator, manifests_to_process):
                             storage_path=storage_path,
                             num_workers=args.threads_per_device,
                             batch_duration=args.batch_duration,
-                            collate=True,
+                            collate=False,
                             overwrite=True,
                             storage_type=NumpyHdf5Writer,
                         )
