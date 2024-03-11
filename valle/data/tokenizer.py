@@ -278,6 +278,9 @@ class AudioTokenExtractor(FeatureExtractor):
     def extract(
         self, samples: Union[np.ndarray, torch.Tensor], sampling_rate: int
     ) -> np.ndarray:
+        # Clear CUDA cache to avoid VRAM leak during processing of large datasets
+        torch.cuda.empty_cache()
+
         if not isinstance(samples, torch.Tensor):
             samples = torch.from_numpy(samples)
         if sampling_rate != self.tokenizer.sample_rate:
@@ -324,6 +327,9 @@ class AudioTokenExtractor(FeatureExtractor):
         return padded_tensor, lengths
 
     def extract_batch(self, samples, sampling_rate, lengths) -> np.ndarray:
+        # Clear CUDA cache to avoid VRAM leak during processing of large datasets
+        torch.cuda.empty_cache()
+
         samples = [wav.squeeze() for wav in samples]
         device = self.tokenizer.device
         samples, lengths = self.pad_tensor_list(samples, device)
