@@ -12,7 +12,7 @@ from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 
-def convert_to_target_format(file_path, target_format='.opus'):
+def convert_to_target_format(file_path, target_format='.opus', delete_failed=False):
     """
     Convert an audio file to OPUS format at 24kHz sample rate and Mono channel. delete the original file.
     """
@@ -62,8 +62,13 @@ def convert_to_target_format(file_path, target_format='.opus'):
                     logging.debug(f"Converted and deleted {file_path}")
             return True
         else:
-            with logging_redirect_tqdm():
-                logging.error(f"Failed to convert {file_path}")
+            if delete_failed:
+                os.remove(file_path)
+                with logging_redirect_tqdm():
+                    logging.error(f"Failed to convert {file_path}. File was deleted.")
+            else:
+                with logging_redirect_tqdm():
+                    logging.error(f"Failed to convert {file_path}")
             return False
     except Exception as e:
         with logging_redirect_tqdm():
@@ -82,7 +87,7 @@ def find_files(root_dir):
                 yield Path(root) / file
 
 
-def convert_files(root_dir, target_format, threads):
+def convert_files(root_dir, target_format, threads, delete_failed):
     """
     Find all supported audio files in the directory tree and convert them to FLAC using multiple processes.
     """
@@ -93,7 +98,7 @@ def convert_files(root_dir, target_format, threads):
         for file_path in tqdm(files_to_convert, desc="Creating Tasks", leave=False):
             # Submit to processing
             futures.append(
-                ex.submit(convert_to_target_format, file_path, target_format)
+                ex.submit(convert_to_target_format, file_path, target_format, delete_failed)
             )
 
         # Just wait for processing to be done here
@@ -118,7 +123,8 @@ if __name__ == '__main__':
     parser.add_argument("-d", "--dir", type=str, help="dir with audio files and transcripts")
     parser.add_argument("-f", "--target-format", type=str, default='.opus', help="target format")
     parser.add_argument("-t", "--threads", type=int, default=16, help="processing threads to use")
+    parser.add_argument("-df", "--delete-failed", type=bool, default=False, help="delete files which fail conversion")
 
     # Run
     args = parser.parse_args()
-    convert_files(args.dir, args.target_format, args.threads)
+    convert_files(args.dir, args.target_format, args.threads, args.delete_failed)

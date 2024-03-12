@@ -184,6 +184,11 @@ def process_manifests(args, accelerator, manifests_to_process):
                     )
 
                 if args.prefix.lower() in ["ljspeech", "aishell", "baker", "commonvoice", "vall-e-x"]:
+                    # filter
+                    logging.info(f"removing audio of partition {partition} which is longer than batchsize duration")
+                    cut_set = cut_set.filter(lambda x: x.duration < args.batch_duration)
+
+                    # resample
                     logging.info(f"resampling CutSet audio for partition {partition}")
                     cut_set = cut_set.resample(24000)
                     # https://github.com/lifeiteng/vall-e/issues/90
@@ -243,7 +248,6 @@ def process_manifests(args, accelerator, manifests_to_process):
                             phonemes = tokenize_text(
                                 text_tokenizer, text=text
                             )
-                            c.supervisions[0].custom = {}
                         else:  # libritts, commonvoice, custom
                             text = c.supervisions[0].text
                             if args.convert_to_ascii:
@@ -252,6 +256,12 @@ def process_manifests(args, accelerator, manifests_to_process):
                             phonemes = tokenize_text(
                                 text_tokenizer, text=text
                             )
+
+                        # ensure there's a map for custom data in the supervision
+                        if not c.supervisions[0].custom:
+                            c.supervisions[0].custom = {}
+
+                        # Add phonemes for text
                         c.supervisions[0].custom["tokens"] = {"text": phonemes}
                         unique_symbols.update(phonemes)
 
