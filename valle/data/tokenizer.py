@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
 import logging
 import re
 from dataclasses import asdict, dataclass
@@ -175,6 +176,8 @@ class TextTokenizer:
 
 def tokenize_text(tokenizer: TextTokenizer, text: str) -> List[str]:
     phonemes = tokenizer([text.strip()])
+    print(json.dump(phonemes))
+    raise RuntimeError("Exit here")
     return phonemes[0]  # k2symbols
 
 
