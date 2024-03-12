@@ -172,6 +172,16 @@ def process_manifests(args, accelerator, manifests_to_process):
             except Exception:
                 cut_set = m["cuts"].to_eager()
 
+            # filter
+            logging.info(
+                f"removing entries of partition {partition} which are longer than batchsize duration or have empty text")
+            cut_set = cut_set.filter(
+                lambda x:
+                x.duration > args.batch_duration and
+                x.supervisions[0].text and
+                len(x.supervisions[0].text.strip()) > 0
+            )
+
             # TextTokenizer
             if args.text_extractor:
                 logging.info(f"Extracting CutSet phonemes for partition {partition}")
@@ -228,15 +238,6 @@ def process_manifests(args, accelerator, manifests_to_process):
                     )
 
                 if args.prefix.lower() in ["ljspeech", "aishell", "baker", "commonvoice", "vall-e-x"]:
-                    # filter
-                    logging.info(f"removing entries of partition {partition} which are longer than batchsize duration or have empty text")
-                    cut_set = cut_set.filter(
-                        lambda x:
-                        args.batch_duration > x.duration > 0.1 and
-                        x.supervisions[0].text and
-                        len(x.supervisions[0].text.strip()) > 0
-                    )
-
                     # resample
                     logging.info(f"resampling CutSet audio for partition {partition}")
                     cut_set = cut_set.resample(24000)
