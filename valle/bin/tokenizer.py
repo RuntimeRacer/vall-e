@@ -177,7 +177,7 @@ def process_manifests(args, accelerator, manifests_to_process):
                 f"removing entries of partition {partition} which are longer than batchsize duration or have empty text")
             cut_set = cut_set.filter(
                 lambda x:
-                x.duration > args.batch_duration and
+                x.duration < args.batch_duration and
                 x.supervisions[0].text and
                 len(x.supervisions[0].text.strip()) > 0
             )
