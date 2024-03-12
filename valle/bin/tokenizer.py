@@ -187,7 +187,7 @@ def process_manifests(args, accelerator, manifests_to_process):
                     # filter
                     logging.info(f"removing entries of partition {partition} which are longer than batchsize duration or have empty text")
                     cut_set = cut_set.filter(
-                        lambda x: x.duration < args.batch_duration and len(x.text) > 0
+                        lambda x: x.duration < args.batch_duration and len(x.supervisions[0].text) > 0
                     )
 
                     # resample
