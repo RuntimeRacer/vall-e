@@ -185,8 +185,10 @@ def process_manifests(args, accelerator, manifests_to_process):
 
                 if args.prefix.lower() in ["ljspeech", "aishell", "baker", "commonvoice", "vall-e-x"]:
                     # filter
-                    logging.info(f"removing audio of partition {partition} which is longer than batchsize duration")
-                    cut_set = cut_set.filter(lambda x: x.duration < args.batch_duration)
+                    logging.info(f"removing entries of partition {partition} which are longer than batchsize duration or have empty text")
+                    cut_set = cut_set.filter(
+                        lambda x: x.duration < args.batch_duration and len(x.text) > 0
+                    )
 
                     # resample
                     logging.info(f"resampling CutSet audio for partition {partition}")
@@ -240,7 +242,9 @@ def process_manifests(args, accelerator, manifests_to_process):
                             text = text.replace("”", '"').replace("“", '"')
                             if args.convert_to_ascii:
                                 text = anyascii(text)
-                            phonemes = tokenize_text(text_tokenizer, text=text)
+                            phonemes = tokenize_text(
+                                text_tokenizer, text=text
+                            )
                         elif args.prefix == "aishell":
                             text = c.supervisions[0].text
                             if args.convert_to_ascii:
