@@ -163,6 +163,7 @@ class TextTokenizer:
         if len("".join(fields[:-1])) != len(phonemized) - phonemized.count(self.separator.phone):
             fieldlength = len("".join(fields[:-1]))
             logging.warning(f"Assertion will fail: {fieldlength} == {len(phonemized)} - {phonemized.count(self.separator.phone)} ")
+            logging.warning(f"Phonemized: {phonemized}")
 
         assert len("".join(fields[:-1])) == len(phonemized) - phonemized.count(self.separator.phone)
         return fields[:-1]
