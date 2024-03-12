@@ -179,10 +179,7 @@ class TextTokenizer:
 
 
 def tokenize_text(tokenizer: TextTokenizer, text: str) -> List[str]:
-    text = text.replace("    ", " ")
-    text = text.replace("   ", " ")
-    text = text.replace("  ", " ")
-    phonemes = tokenizer([text.strip()])
+    phonemes = tokenizer([' '.join(text.strip().split())])
     if len(phonemes) == 0:
         logging.warning(f"Text returned empty Phonemes: '{text}'")
         return [""]
