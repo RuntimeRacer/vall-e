@@ -65,7 +65,7 @@ def convert_to_target_format(file_path, target_format='.opus', delete_failed=Fal
             if delete_failed:
                 os.remove(file_path)
                 with logging_redirect_tqdm():
-                    logging.error(f"Failed to convert {file_path}. File was deleted.")
+                    logging.warning(f"Failed to convert {file_path}. File was deleted.")
             else:
                 with logging_redirect_tqdm():
                     logging.error(f"Failed to convert {file_path}")
