@@ -369,7 +369,10 @@ if __name__ == "__main__":
                 subprocess_phonemes = SymbolTable()
                 subprocess_phonemes_file = f"{args.output_dir}/{args.symbols_file}_{proc_idx}"
                 subprocess_phonemes.from_file(subprocess_phonemes_file)
-                unique_phonemes.merge(subprocess_phonemes)
+                subprocess_symbol_list = subprocess_phonemes.symbols
+
+                for s in subprocess_symbol_list:
+                    unique_phonemes.add(s)
 
             # Save Combined Phonemes File
             unique_phonemes.to_file(unique_phonemes_file)
