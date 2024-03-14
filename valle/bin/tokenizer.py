@@ -361,7 +361,7 @@ if __name__ == "__main__":
 
             # reuse symbols file in case we want to extend existing training data with a new language
             if Path(unique_phonemes_file).is_file():
-                unique_phonemes.from_file(args.symbols_file)
+                unique_phonemes.from_file(unique_phonemes_file)
 
             # Combine all Symbol files in main process
             for proc_idx in range(accelerator.num_processes):
