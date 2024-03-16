@@ -347,7 +347,7 @@ if __name__ == "__main__":
         # Split the CutSet according to processing threads
         split_cut_sets = cut_set.split(num_splits=task_capacity)
         # clean up memory
-        cut_set = cut_set.truncate(max_duration=0, offset_type="start")
+        cut_set = cut_set.truncate(max_duration=0.000001, offset_type="start")
         del cut_set
         # Perform tokenization across all threads
         with ProcessPoolExecutor(max_workers=task_capacity) as ex:
