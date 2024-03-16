@@ -23,18 +23,16 @@ Usage example:
 import argparse
 import logging
 import os
-import time
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
-
-from accelerate import Accelerator
 
 from anyascii import anyascii
 import torch
 import torch.multiprocessing
-from icefall.utils import get_executor
 from lhotse import CutSet, NumpyHdf5Writer
 from lhotse.recipes.utils import read_manifests_if_cached
 from tqdm.auto import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 from valle.data import (
     AudioTokenConfig,
@@ -122,175 +120,143 @@ def get_args():
         help="Path to a token file",
     )
     parser.add_argument(
-        "--threads-per-device",
+        "--tokenizers-per-device",
+        type=int,
+        default=1,
+        help="Tokenizers to use per device for processing",
+    )
+    parser.add_argument(
+        "--threads-per-tokenizer",
         type=int,
         default=8,
-        help="Threads to use per device for processing",
+        help="Threads to use per tokenizer for processing",
     )
 
     return parser.parse_args()
 
 
-def process_manifests(args, accelerator, manifests_to_process):
-
+def tokenize_cut_set(cut_set, index, working_dir, args):
+    # Setup extractor
     text_tokenizer = None
     if args.text_extractor:
         text_tokenizer = TextTokenizer(backend=args.text_extractor)
-
-    Path(args.output_dir).mkdir(parents=True, exist_ok=True)
-
+    # Symbol set for this instance
     unique_symbols = set()
 
     prefix = args.prefix
     if prefix and not prefix.endswith("_"):
         prefix = f"{prefix}_"
 
-    logging.info(f"CUDA available: {torch.cuda.is_available()}")
-
-    audio_extractor = None
-    if args.audio_extractor:
-        if args.audio_extractor == "Encodec":
-            audio_extractor = AudioTokenExtractor(AudioTokenConfig(), device=accelerator.device)
+    if args.text_extractor:
+        logging.info(f"Extracting CutSet phonemes for partition {partition}")
+        if (
+                args.prefix == "baker"
+                and args.text_extractor == "labeled_pinyin"
+        ):
+            for c in tqdm(cut_set):
+                phonemes = c.supervisions[0].custom["tokens"]["text"]
+                unique_symbols.update(phonemes)
         else:
-            assert args.audio_extractor == "Fbank"
-            audio_extractor = get_fbank_extractor()
-
-    logging.info(f"Process using Device: {accelerator.device}")
-
-    with get_executor() as ex:
-        for partition, m in manifests_to_process.items():
-            logging.info(
-                f"Processing partition: {partition}"
-            )
-            # Ensure Manifest is not lazy
-            try:
-                logging.info(f"creating CutSet for partition {partition}")
-                cut_set = CutSet.from_manifests(
-                    recordings=m["recordings"].to_eager(),
-                    supervisions=m["supervisions"].to_eager(),
-                )
-            except Exception:
-                cut_set = m["cuts"].to_eager()
-
-            # filter
-            logging.info(
-                f"removing entries of partition {partition} which are longer than batchsize duration or have empty text")
-            cut_set = cut_set.filter(
-                lambda x:
-                x.duration < args.batch_duration and
-                x.supervisions[0].text and
-                len(x.supervisions[0].text.strip()) > 0
-            )
-
-            # TextTokenizer
-            if args.text_extractor:
-                logging.info(f"Extracting CutSet phonemes for partition {partition}")
-                if (
-                        args.prefix == "baker"
-                        and args.text_extractor == "labeled_pinyin"
-                ):
-                    for c in tqdm(cut_set):
-                        phonemes = c.supervisions[0].custom["tokens"]["text"]
-                        unique_symbols.update(phonemes)
-                else:
-                    for c in tqdm(cut_set):
-                        if args.prefix == "ljspeech":
-                            text = c.supervisions[0].custom["normalized_text"]
-                            text = text.replace("”", '"').replace("“", '"')
-                            if args.convert_to_ascii:
-                                text = anyascii(text)
-                            phonemes = tokenize_text(
-                                text_tokenizer, text=text
-                            )
-                        elif args.prefix == "aishell":
-                            text = c.supervisions[0].text
-                            if args.convert_to_ascii:
-                                text = anyascii(text)
-                            phonemes = tokenize_text(
-                                text_tokenizer, text=text
-                            )
-                        else:  # libritts, commonvoice, custom
-                            text = c.supervisions[0].text
-                            if args.convert_to_ascii:
-                                text = anyascii(text)
-                            text = text.lower()
-                            phonemes = tokenize_text(
-                                text_tokenizer, text=text
-                            )
-
-                        # ensure there's a map for custom data in the supervision
-                        if not c.supervisions[0].custom:
-                            c.supervisions[0].custom = {}
-
-                        # Add phonemes for text
-                        c.supervisions[0].custom["tokens"] = {"text": phonemes}
-                        unique_symbols.update(phonemes)
-
-            # AudioTokenizer
-            if args.audio_extractor:
-                if args.audio_extractor == "Encodec":
-                    storage_path = (
-                        f"{args.output_dir}/{args.prefix}_encodec_{partition}"
+            for c in tqdm(cut_set):
+                if args.prefix == "ljspeech":
+                    text = c.supervisions[0].custom["normalized_text"]
+                    text = text.replace("”", '"').replace("“", '"')
+                    if args.convert_to_ascii:
+                        text = anyascii(text)
+                    phonemes = tokenize_text(
+                        text_tokenizer, text=text
                     )
-                else:
-                    storage_path = (
-                        f"{args.output_dir}/{args.prefix}_fbank_{partition}"
+                elif args.prefix == "aishell":
+                    text = c.supervisions[0].text
+                    if args.convert_to_ascii:
+                        text = anyascii(text)
+                    phonemes = tokenize_text(
+                        text_tokenizer, text=text
+                    )
+                else:  # libritts, commonvoice, custom
+                    text = c.supervisions[0].text
+                    if args.convert_to_ascii:
+                        text = anyascii(text)
+                    text = text.lower()
+                    phonemes = tokenize_text(
+                        text_tokenizer, text=text
                     )
 
-                if args.prefix.lower() in ["ljspeech", "aishell", "baker", "commonvoice", "vall-e-x"]:
-                    # resample
-                    logging.info(f"resampling CutSet audio for partition {partition}")
-                    cut_set = cut_set.resample(24000)
-                    # https://github.com/lifeiteng/vall-e/issues/90
-                    # if args.prefix == "aishell":
-                    #     # NOTE: the loudness of aishell audio files is around -33
-                    #     # The best way is datamodule --on-the-fly-feats --enable-audio-aug
-                    #     cut_set = cut_set.normalize_loudness(
-                    #         target=-20.0, affix_id=True
-                    #     )
+                # ensure there's a map for custom data in the supervision
+                if not c.supervisions[0].custom:
+                    c.supervisions[0].custom = {}
 
-                with torch.no_grad():
-                    logging.info(f"Extracting CutSet features for partition {partition}")
-                    if (
-                        torch.cuda.is_available()
-                        and args.audio_extractor == "Encodec"
-                    ):
-                        cut_set = cut_set.compute_and_store_features_batch(
-                            extractor=audio_extractor,
-                            storage_path=storage_path,
-                            num_workers=args.threads_per_device,
-                            batch_duration=args.batch_duration,
-                            collate=False,
-                            overwrite=True,
-                            storage_type=NumpyHdf5Writer,
-                        )
-                    else:
-                        cut_set = cut_set.compute_and_store_features(
-                            extractor=audio_extractor,
-                            storage_path=storage_path,
-                            num_jobs=args.threads_per_device if ex is None else 64,
-                            executor=ex,
-                            storage_type=NumpyHdf5Writer,
-                        )
+                # Add phonemes for text
+                c.supervisions[0].custom["tokens"] = {"text": phonemes}
+                unique_symbols.update(phonemes)
 
-
-
-            cuts_filename = f"{prefix}cuts_{partition}.{args.suffix}"
-            cut_set.to_file(f"{args.output_dir}/{cuts_filename}")
+    # Save CutSet with Index
+    cuts_filename = f"{prefix}cuts_{partition}_{index}.{args.suffix}"
+    cut_set.to_file(f"{working_dir}/{cuts_filename}")
 
     if args.text_extractor:
-        process_phonemes = SymbolTable()
-        process_phonemes_file = f"{args.output_dir}/{args.symbols_file}_{accelerator.local_process_index}"
+        return index, cut_set, unique_symbols
+    else:
+        return None
 
-        # reuse symbols file in case we want to extend existing training data with a new language
-        if Path(process_phonemes_file).is_file():
-            process_phonemes.from_file(process_phonemes_file)
-
-        for s in sorted(list(unique_symbols)):
-            process_phonemes.add(s)
-
-        logging.info(f"Process Group {accelerator.local_process_index}: {len(unique_symbols)} unique phonemes.")
-        process_phonemes.to_file(process_phonemes_file)
+# def process_manifests(args, accelerator, manifests_to_process):
+#
+#     audio_extractor = None
+#     if args.audio_extractor:
+#         if args.audio_extractor == "Encodec":
+#             audio_extractor = AudioTokenExtractor(AudioTokenConfig(), device=accelerator.device)
+#         else:
+#             assert args.audio_extractor == "Fbank"
+#             audio_extractor = get_fbank_extractor()
+#
+#     logging.info(f"Process using Device: {accelerator.device}")
+#
+#     # AudioTokenizer
+#     if args.audio_extractor:
+#         if args.audio_extractor == "Encodec":
+#             storage_path = (
+#                 f"{args.output_dir}/{args.prefix}_encodec_{partition}"
+#             )
+#         else:
+#             storage_path = (
+#                 f"{args.output_dir}/{args.prefix}_fbank_{partition}"
+#             )
+#
+#         if args.prefix.lower() in ["ljspeech", "aishell", "baker", "commonvoice", "vall-e-x"]:
+#             # resample
+#             logging.info(f"resampling CutSet audio for partition {partition}")
+#             cut_set = cut_set.resample(24000)
+#             # https://github.com/lifeiteng/vall-e/issues/90
+#             # if args.prefix == "aishell":
+#             #     # NOTE: the loudness of aishell audio files is around -33
+#             #     # The best way is datamodule --on-the-fly-feats --enable-audio-aug
+#             #     cut_set = cut_set.normalize_loudness(
+#             #         target=-20.0, affix_id=True
+#             #     )
+#
+#         with torch.no_grad():
+#             logging.info(f"Extracting CutSet features for partition {partition}")
+#             if (
+#                 torch.cuda.is_available()
+#                 and args.audio_extractor == "Encodec"
+#             ):
+#                 cut_set = cut_set.compute_and_store_features_batch(
+#                     extractor=audio_extractor,
+#                     storage_path=storage_path,
+#                     num_workers=args.threads_per_device,
+#                     batch_duration=args.batch_duration,
+#                     collate=False,
+#                     overwrite=True,
+#                     storage_type=NumpyHdf5Writer,
+#                 )
+#             else:
+#                 cut_set = cut_set.compute_and_store_features(
+#                     extractor=audio_extractor,
+#                     storage_path=storage_path,
+#                     num_jobs=args.threads_per_device,
+#                     executor=None,
+#                     storage_type=NumpyHdf5Writer,
+#                 )
 
 
 if __name__ == "__main__":
@@ -331,49 +297,84 @@ if __name__ == "__main__":
 
     assert len(manifests) >= 1
 
-    # Use Accelerator for speedup of this pre-processing
-    accelerator = Accelerator()
+    # determine total task capacity
+    logging.info(f"CUDA available: {torch.cuda.is_available()}")
+    device_count = 1 # default 1 CPU
+    if torch.cuda.is_available():
+        device_count = torch.cuda.device_count()
+    task_capacity = device_count * args.tokenizers_per_device * args.threads_per_tokenizer
+    logging.info(f"{device_count} available devices for processing")
+    logging.info(f"total task capacity: {task_capacity}")
 
-    # Distribute Manifest Elements across processes
-    manifests_to_process = {}
-    manifest_idx = accelerator.process_index
-    manifest_keys = list(manifests.keys())
-    while manifest_idx < len(manifests):
-        manifests_to_process[manifest_keys[manifest_idx]] = manifests[manifest_keys[manifest_idx]]
-        manifest_idx += accelerator.num_processes
+    # Setup working directory
+    working_dir = Path(f"{args.output_dir}/work")
+    os.rmdir(working_dir) # clear existing dir
+    os.makedirs(working_dir)
 
-    # Process Manifests
-    process_manifests(args, accelerator, manifests_to_process)
+    # Setup Symbol Table - reuse symbols file in case we want to extend existing training data with a new language
+    if args.text_extractor:
+        phonemes = SymbolTable()
+        phonemes_file = f"{args.output_dir}/{args.symbols_file}"
+        if Path(phonemes_file).is_file():
+            phonemes.from_file(phonemes_file)
 
-    # Wait for all processes to finish
-    accelerator.wait_for_everyone()
+    # Get CutSets and split them according to task count
+    for partition, m in manifests.items():
+        logging.info(
+            f"Pre-processing partition: {partition}"
+        )
+        # Ensure Manifest is not lazy
+        try:
+            logging.info(f"creating CutSet for partition {partition}")
+            cut_set = CutSet.from_manifests(
+                recordings=m["recordings"].to_eager(),
+                supervisions=m["supervisions"].to_eager(),
+            )
+        except Exception:
+            cut_set = m["cuts"].to_eager()
 
-    # Only do this on the main process
-    with accelerator.local_main_process_first():
-        if accelerator.is_local_main_process:
-            logging.info("Combining results of different processing threads...")
-            # Wait for 5 seconds to incorporate potential IO delays
-            time.sleep(5)
+        # filter
+        logging.info(
+            f"removing entries of partition {partition} which are longer than batchsize duration or have empty text")
+        cut_set = cut_set.filter(
+            lambda x:
+            x.duration < args.batch_duration and
+            x.supervisions[0].text and
+            len(x.supervisions[0].text.strip()) > 0
+        )
 
-            # Get global Symbols file
-            unique_phonemes = SymbolTable()
-            unique_phonemes_file = f"{args.output_dir}/{args.symbols_file}"
+        # Split the CutSet according to processing threads
+        split_cut_sets = cut_set.split(num_splits=task_capacity)
+        # Perform tokenization across all threads
+        with ProcessPoolExecutor(max_workers=task_capacity) as ex:
+            futures = []
+            for subset_id, subset in enumerate(split_cut_sets):
+                futures.append(
+                    ex.submit(tokenize_cut_set, subset, subset_id, working_dir, args)
+                )
 
-            # reuse symbols file in case we want to extend existing training data with a new language
-            if Path(unique_phonemes_file).is_file():
-                unique_phonemes.from_file(unique_phonemes_file)
+            # Wait for processing to be done
+            for future in tqdm(futures, desc="Processing", leave=False):
+                result = future.result()
+                subset_id, subset, symbol_list = result
+                # Append Phonemes to list if applicable
+                if symbol_list is not None:
+                    if phonemes is None:
+                        raise RuntimeError("Symbol table not defined but phonemes returned by subprocess")
+                    else:
+                        for s in sorted(list(symbol_list)):
+                            phonemes.add(s)
+                # Update CutSet references in list
+                split_cut_sets[subset_id] = subset
+                with logging_redirect_tqdm():
+                    logging.info(f"Finished tokenizing Cut-SubSet with ID {subset_id}.")
 
-            # Combine all Symbol files in main process
-            for proc_idx in range(accelerator.num_processes):
-                logging.info(f"Adding Phonemes from process group {proc_idx} ...")
-                subprocess_phonemes = SymbolTable()
-                subprocess_phonemes_file = f"{args.output_dir}/{args.symbols_file}_{proc_idx}"
-                subprocess_phonemes.from_file(subprocess_phonemes_file)
-                subprocess_symbol_list = subprocess_phonemes.symbols
+            with logging_redirect_tqdm():
+                logging.info("All Cut-Subsets have been tokenized")
 
-                for s in subprocess_symbol_list:
-                    unique_phonemes.add(s)
+    # TODO: Parallel Feature extraction
 
-            # Save Combined Phonemes File
-            unique_phonemes.to_file(unique_phonemes_file)
+    # Save Phonemes
+    if phonemes_file:
+        phonemes.to_file(phonemes_file)
 
