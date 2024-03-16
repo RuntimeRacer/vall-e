@@ -299,7 +299,7 @@ if __name__ == "__main__":
 
     # determine total task capacity
     logging.info(f"CUDA available: {torch.cuda.is_available()}")
-    device_count = 1 # default 1 CPU
+    device_count = 1  # default 1 CPU
     if torch.cuda.is_available():
         device_count = torch.cuda.device_count()
     task_capacity = device_count * args.tokenizers_per_device * args.threads_per_tokenizer
@@ -308,7 +308,8 @@ if __name__ == "__main__":
 
     # Setup working directory
     working_dir = Path(f"{args.output_dir}/work")
-    os.rmdir(working_dir) # clear existing dir
+    if working_dir.exists():
+        os.rmdir(working_dir)  # clear existing dir
     os.makedirs(working_dir)
 
     # Setup Symbol Table - reuse symbols file in case we want to extend existing training data with a new language
