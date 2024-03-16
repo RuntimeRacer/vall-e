@@ -147,59 +147,56 @@ def tokenize_cut_set(cut_set, index, working_dir, args):
     if prefix and not prefix.endswith("_"):
         prefix = f"{prefix}_"
 
-    if args.text_extractor:
-        with logging_redirect_tqdm():
+    with logging_redirect_tqdm():
+        if args.text_extractor:
             logging.info(f"Extracting CutSet phonemes for partition {partition}")
-        
-        if (
-                args.prefix == "baker"
-                and args.text_extractor == "labeled_pinyin"
-        ):
-            for c in tqdm(cut_set):
-                phonemes = c.supervisions[0].custom["tokens"]["text"]
-                unique_symbols.update(phonemes)
+    
+            if args.prefix == "baker" and args.text_extractor == "labeled_pinyin":
+                for c in tqdm(cut_set):
+                    phonemes = c.supervisions[0].custom["tokens"]["text"]
+                    unique_symbols.update(phonemes)
+            else:
+                for c in tqdm(cut_set):
+                    if args.prefix == "ljspeech":
+                        text = c.supervisions[0].custom["normalized_text"]
+                        text = text.replace("”", '"').replace("“", '"')
+                        if args.convert_to_ascii:
+                            text = anyascii(text)
+                        phonemes = tokenize_text(
+                            text_tokenizer, text=text
+                        )
+                    elif args.prefix == "aishell":
+                        text = c.supervisions[0].text
+                        if args.convert_to_ascii:
+                            text = anyascii(text)
+                        phonemes = tokenize_text(
+                            text_tokenizer, text=text
+                        )
+                    else:  # libritts, commonvoice, custom
+                        text = c.supervisions[0].text
+                        if args.convert_to_ascii:
+                            text = anyascii(text)
+                        text = text.lower()
+                        phonemes = tokenize_text(
+                            text_tokenizer, text=text
+                        )
+
+                    # ensure there's a map for custom data in the supervision
+                    if not c.supervisions[0].custom:
+                        c.supervisions[0].custom = {}
+
+                    # Add phonemes for text
+                    c.supervisions[0].custom["tokens"] = {"text": phonemes}
+                    unique_symbols.update(phonemes)
+
+        # Save CutSet with Index
+        cuts_filename = f"{prefix}cuts_{partition}_{index}.{args.suffix}"
+        cut_set.to_file(f"{working_dir}/{cuts_filename}")
+
+        if args.text_extractor:
+            return index, cut_set, unique_symbols
         else:
-            for c in tqdm(cut_set):
-                if args.prefix == "ljspeech":
-                    text = c.supervisions[0].custom["normalized_text"]
-                    text = text.replace("”", '"').replace("“", '"')
-                    if args.convert_to_ascii:
-                        text = anyascii(text)
-                    phonemes = tokenize_text(
-                        text_tokenizer, text=text
-                    )
-                elif args.prefix == "aishell":
-                    text = c.supervisions[0].text
-                    if args.convert_to_ascii:
-                        text = anyascii(text)
-                    phonemes = tokenize_text(
-                        text_tokenizer, text=text
-                    )
-                else:  # libritts, commonvoice, custom
-                    text = c.supervisions[0].text
-                    if args.convert_to_ascii:
-                        text = anyascii(text)
-                    text = text.lower()
-                    phonemes = tokenize_text(
-                        text_tokenizer, text=text
-                    )
-
-                # ensure there's a map for custom data in the supervision
-                if not c.supervisions[0].custom:
-                    c.supervisions[0].custom = {}
-
-                # Add phonemes for text
-                c.supervisions[0].custom["tokens"] = {"text": phonemes}
-                unique_symbols.update(phonemes)
-
-    # Save CutSet with Index
-    cuts_filename = f"{prefix}cuts_{partition}_{index}.{args.suffix}"
-    cut_set.to_file(f"{working_dir}/{cuts_filename}")
-
-    if args.text_extractor:
-        return index, cut_set, unique_symbols
-    else:
-        return None
+            return None
 
 # def process_manifests(args, accelerator, manifests_to_process):
 #
