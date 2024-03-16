@@ -310,7 +310,7 @@ if __name__ == "__main__":
     working_dir = Path(f"{args.output_dir}/work")
     if working_dir.exists():
         os.rmdir(working_dir)  # clear existing dir
-    os.makedirs(working_dir)
+    os.makedirs(working_dir, exist_ok=True)
 
     # Setup Symbol Table - reuse symbols file in case we want to extend existing training data with a new language
     if args.text_extractor:
