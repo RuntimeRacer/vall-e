@@ -148,7 +148,9 @@ def tokenize_cut_set(cut_set, index, working_dir, args):
         prefix = f"{prefix}_"
 
     if args.text_extractor:
-        logging.info(f"Extracting CutSet phonemes for partition {partition}")
+        with logging_redirect_tqdm():
+            logging.info(f"Extracting CutSet phonemes for partition {partition}")
+        
         if (
                 args.prefix == "baker"
                 and args.text_extractor == "labeled_pinyin"
@@ -355,7 +357,8 @@ if __name__ == "__main__":
                 )
 
             # Wait for processing to be done
-            for future in tqdm(futures, desc="Processing", leave=False):
+            # for future in tqdm(futures, desc="Processing", leave=False):
+            for future in futures:
                 result = future.result()
                 subset_id, subset, symbol_list = result
                 # Append Phonemes to list if applicable
