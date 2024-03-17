@@ -173,8 +173,8 @@ class BigVGANFbank(FeatureExtractor):
         return float(np.sum(np.exp(features)))
 
 
-def get_fbank_extractor() -> BigVGANFbank:
-    return BigVGANFbank(BigVGANFbankConfig())
+def get_fbank_extractor(device=None) -> BigVGANFbank:
+    return BigVGANFbank(BigVGANFbankConfig(), device=device if not None else "cpu")
 
 
 if __name__ == "__main__":

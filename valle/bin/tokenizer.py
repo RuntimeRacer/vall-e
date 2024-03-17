@@ -105,8 +105,7 @@ def get_args():
         "--batch-duration",
         type=float,
         default=400.0,
-        help="The maximum number of audio seconds in a batch."
-             "Determines batch size dynamically.",
+        help="The maximum number of audio seconds in a batch. Determines batch size dynamically.",
     )
     parser.add_argument(
         "--convert-to-ascii",
@@ -191,72 +190,72 @@ def tokenize_cut_set(cut_set, index, working_dir, args):
                     unique_symbols.update(phonemes)
 
         # Save CutSet with Index
-        cuts_filename = f"{prefix}cuts_{partition}_{index}.{args.suffix}"
-        cut_set.to_file(f"{working_dir}/{cuts_filename}")
+        # cuts_filename = f"{prefix}cuts_{partition}_{index}.{args.suffix}"
+        # cut_set.to_file(f"{working_dir}/{cuts_filename}")
 
         if args.text_extractor:
             return index, cut_set, unique_symbols
         else:
             return None
 
-# def process_manifests(args, accelerator, manifests_to_process):
-#
-#     audio_extractor = None
-#     if args.audio_extractor:
-#         if args.audio_extractor == "Encodec":
-#             audio_extractor = AudioTokenExtractor(AudioTokenConfig(), device=accelerator.device)
-#         else:
-#             assert args.audio_extractor == "Fbank"
-#             audio_extractor = get_fbank_extractor()
-#
-#     logging.info(f"Process using Device: {accelerator.device}")
-#
-#     # AudioTokenizer
-#     if args.audio_extractor:
-#         if args.audio_extractor == "Encodec":
-#             storage_path = (
-#                 f"{args.output_dir}/{args.prefix}_encodec_{partition}"
-#             )
-#         else:
-#             storage_path = (
-#                 f"{args.output_dir}/{args.prefix}_fbank_{partition}"
-#             )
-#
-#         if args.prefix.lower() in ["ljspeech", "aishell", "baker", "commonvoice", "vall-e-x"]:
-#             # resample
-#             logging.info(f"resampling CutSet audio for partition {partition}")
-#             cut_set = cut_set.resample(24000)
-#             # https://github.com/lifeiteng/vall-e/issues/90
-#             # if args.prefix == "aishell":
-#             #     # NOTE: the loudness of aishell audio files is around -33
-#             #     # The best way is datamodule --on-the-fly-feats --enable-audio-aug
-#             #     cut_set = cut_set.normalize_loudness(
-#             #         target=-20.0, affix_id=True
-#             #     )
-#
-#         with torch.no_grad():
-#             logging.info(f"Extracting CutSet features for partition {partition}")
-#             if (
-#                 torch.cuda.is_available()
-#                 and args.audio_extractor == "Encodec"
-#             ):
-#                 cut_set = cut_set.compute_and_store_features_batch(
-#                     extractor=audio_extractor,
-#                     storage_path=storage_path,
-#                     num_workers=args.threads_per_device,
-#                     batch_duration=args.batch_duration,
-#                     collate=False,
-#                     overwrite=True,
-#                     storage_type=NumpyHdf5Writer,
-#                 )
-#             else:
-#                 cut_set = cut_set.compute_and_store_features(
-#                     extractor=audio_extractor,
-#                     storage_path=storage_path,
-#                     num_jobs=args.threads_per_device,
-#                     executor=None,
-#                     storage_type=NumpyHdf5Writer,
-#                 )
+def process_manifests(args, accelerator, manifests_to_process):
+
+    audio_extractor = None
+    if args.audio_extractor:
+        if args.audio_extractor == "Encodec":
+            audio_extractor = AudioTokenExtractor(AudioTokenConfig(), device=accelerator.device)
+        else:
+            assert args.audio_extractor == "Fbank"
+            audio_extractor = get_fbank_extractor()
+
+    logging.info(f"Process using Device: {accelerator.device}")
+
+    # AudioTokenizer
+    if args.audio_extractor:
+        if args.audio_extractor == "Encodec":
+            storage_path = (
+                f"{args.output_dir}/{args.prefix}_encodec_{partition}"
+            )
+        else:
+            storage_path = (
+                f"{args.output_dir}/{args.prefix}_fbank_{partition}"
+            )
+
+        if args.prefix.lower() in ["ljspeech", "aishell", "baker", "commonvoice", "vall-e-x"]:
+            # resample
+            logging.info(f"resampling CutSet audio for partition {partition}")
+            cut_set = cut_set.resample(24000)
+            # https://github.com/lifeiteng/vall-e/issues/90
+            # if args.prefix == "aishell":
+            #     # NOTE: the loudness of aishell audio files is around -33
+            #     # The best way is datamodule --on-the-fly-feats --enable-audio-aug
+            #     cut_set = cut_set.normalize_loudness(
+            #         target=-20.0, affix_id=True
+            #     )
+
+        with torch.no_grad():
+            logging.info(f"Extracting CutSet features for partition {partition}")
+            if (
+                torch.cuda.is_available()
+                and args.audio_extractor == "Encodec"
+            ):
+                cut_set = cut_set.compute_and_store_features_batch(
+                    extractor=audio_extractor,
+                    storage_path=storage_path,
+                    num_workers=args.threads_per_device,
+                    batch_duration=args.batch_duration,
+                    collate=False,
+                    overwrite=True,
+                    storage_type=NumpyHdf5Writer,
+                )
+            else:
+                cut_set = cut_set.compute_and_store_features(
+                    extractor=audio_extractor,
+                    storage_path=storage_path,
+                    num_jobs=args.threads_per_device,
+                    executor=None,
+                    storage_type=NumpyHdf5Writer,
+                )
 
 
 if __name__ == "__main__":
@@ -312,13 +311,6 @@ if __name__ == "__main__":
         shutil.rmtree(working_dir)  # clear existing dir
     os.makedirs(working_dir, exist_ok=True)
 
-    # Setup Symbol Table - reuse symbols file in case we want to extend existing training data with a new language
-    if args.text_extractor:
-        phonemes = SymbolTable()
-        phonemes_file = f"{args.output_dir}/{args.symbols_file}"
-        if Path(phonemes_file).is_file():
-            phonemes.from_file(phonemes_file)
-
     # Get CutSets and split them according to task count
     for partition, m in manifests.items():
         logging.info(
@@ -343,6 +335,13 @@ if __name__ == "__main__":
             x.supervisions[0].text and
             len(x.supervisions[0].text.strip()) > 0
         )
+
+        # Setup Symbol Table - reuse symbols file in case we want to extend existing training data with a new language
+        if args.text_extractor:
+            phonemes = SymbolTable()
+            phonemes_file = f"{args.output_dir}/{args.symbols_file}"
+            if Path(phonemes_file).is_file():
+                phonemes.from_file(phonemes_file)
 
         # Split the CutSet according to processing threads
         split_cut_sets = cut_set.split(num_splits=task_capacity)
@@ -373,12 +372,15 @@ if __name__ == "__main__":
                 with logging_redirect_tqdm():
                     logging.info(f"Finished tokenizing Cut-SubSet with ID {subset_id}.")
 
-            with logging_redirect_tqdm():
-                logging.info("All Cut-Subsets have been tokenized")
+        with logging_redirect_tqdm():
+            logging.info("All Cut-Subsets have been tokenized")
 
-    # TODO: Parallel Feature extraction
+        # Save Phonemes
+        if phonemes_file:
+            phonemes.to_file(phonemes_file)
 
-    # Save Phonemes
-    if phonemes_file:
-        phonemes.to_file(phonemes_file)
+        # Parallel Feature extraction
+
+
+
 
