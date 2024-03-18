@@ -69,6 +69,7 @@ class FeatureExtractionWorker:
             #     )
 
         # Extract Features
+        intermediate_manifest = f"{self.storage_path}_intermediate.jsonl.gz"
         with torch.no_grad():
             logging.info(f"Worker-{self.worker_id}: extracting CutSet features...")
             if (
@@ -78,7 +79,7 @@ class FeatureExtractionWorker:
                 cut_set = cut_set.compute_and_store_features_batch(
                     extractor=self.audio_extractor_instance,
                     storage_path=self.storage_path,
-                    manifest_path=f"{self.storage_path}_intermediate.jsonl.gz",
+                    manifest_path=intermediate_manifest,
                     num_workers=self.worker_threads,
                     batch_duration=self.batch_duration,
                     collate=False,
@@ -89,15 +90,16 @@ class FeatureExtractionWorker:
                 cut_set = cut_set.compute_and_store_features(
                     extractor=self.audio_extractor_instance,
                     storage_path=self.storage_path,
-                    manifest_path=f"{self.storage_path}_intermediate.jsonl.gz",
+                    manifest_path=intermediate_manifest,
                     num_jobs=self.worker_threads,
                     executor=None,
                     storage_type=NumpyHdf5Writer,
                 )
 
         logging.info(f"Worker-{self.worker_id}: feature extraction done. Saving updated Manifest...")
-        # Update Initial Cuts file
+        # Update Initial Cuts file and clean up intermediates
         cut_set.to_file(self.cuts_file)
+        os.remove(intermediate_manifest)
         logging.info(f"Worker-{self.worker_id}: saving done.")
 
     def initialize_extractor(self):
