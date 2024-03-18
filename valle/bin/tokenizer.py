@@ -329,9 +329,12 @@ if __name__ == "__main__":
 
         # Parallel Feature extraction
         # recombine cut Sets
+        logging.info("Recombining and Splitting CutSets for per-tokenizer processing...")
         cut_set = combine(split_cut_sets)
         # Split the CutSet according to processing threads
         split_cut_sets = cut_set.split(num_splits=tokenizer_capacity)
+        # Clean up memory
+        del cut_set
 
         # get prefix for cuts files
         prefix = args.prefix
@@ -341,8 +344,10 @@ if __name__ == "__main__":
         # Save cuts for processing
         for subset_id, subset in enumerate(split_cut_sets):
             # Save CutSet with Index
-            cuts_filename = f"{prefix}cuts_{partition}_{subset_id}.{args.suffix}"
-            cut_set.to_file(f"{working_dir}/{cuts_filename}")
+            subset_filename = f"{prefix}cuts_{partition}_{subset_id}.{args.suffix}"
+            subset.to_file(f"{working_dir}/{subset_filename}")
+        logging.info(f"CutSets distributed to {len(split_cut_sets)} files in directory {working_dir}")
+        del split_cut_sets
 
         # Spawn tokenizer processes for each device
         log_handles = []
