@@ -78,7 +78,7 @@ class FeatureExtractionWorker:
                 cut_set = cut_set.compute_and_store_features_batch(
                     extractor=self.audio_extractor_instance,
                     storage_path=self.storage_path,
-                    manifest_path=f"{self.storage_path}_manifest",
+                    manifest_path=f"{self.storage_path}_manifest.jsonl.gz",
                     num_workers=self.worker_threads,
                     batch_duration=self.batch_duration,
                     collate=False,
@@ -89,7 +89,7 @@ class FeatureExtractionWorker:
                 cut_set = cut_set.compute_and_store_features(
                     extractor=self.audio_extractor_instance,
                     storage_path=self.storage_path,
-                    manifest_path=f"{self.storage_path}_manifest",
+                    manifest_path=f"{self.storage_path}_manifest.jsonl.gz",
                     num_jobs=self.worker_threads,
                     executor=None,
                     storage_type=NumpyHdf5Writer,

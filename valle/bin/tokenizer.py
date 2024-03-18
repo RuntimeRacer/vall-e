@@ -134,6 +134,12 @@ def get_args():
         default=8,
         help="Threads to use per tokenizer for processing",
     )
+    parser.add_argument(
+        "--sample-rate",
+        type=int,
+        default=24000,
+        help="Threads to use per tokenizer for processing",
+    )
 
     return parser.parse_args()
 
