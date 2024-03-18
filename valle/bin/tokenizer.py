@@ -369,6 +369,7 @@ if __name__ == "__main__":
         del split_cut_sets
 
         # Spawn tokenizer processes for each device
+        final_cuts_files = []
         log_handles = []
         process_handles = []
         tokenizer_id = -1
@@ -378,6 +379,7 @@ if __name__ == "__main__":
                 tokenizer_id += 1
                 # File to Process
                 cuts_filename = f"{prefix}cuts_{partition}_{tokenizer_id}.{args.suffix}"
+                final_cuts_files.append(cuts_filename)
 
                 # Build Commandline
                 worker_args = [
@@ -434,6 +436,14 @@ if __name__ == "__main__":
                 else:
                     logging.info(f"Processing partition: {partition}. {done_process_count} of {total_process_count} audio extractors done.")
                     time.sleep(10)
+
+            # Combine subsets for this partition
+            final_cuts = CutSet.from_files(final_cuts_files, shuffle_iters=False)
+            final_filename = f"{prefix}cuts_{partition}.{args.suffix}"
+            final_filename = f"{args.output_dir}/{final_filename}"
+            final_cuts.to_file(final_filename)
+            # Cleanup intermediates
+            # => Ignore for now
 
         except KeyboardInterrupt:
             logging.info("Manual Interrupt!")
