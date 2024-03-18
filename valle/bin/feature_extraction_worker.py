@@ -135,7 +135,7 @@ if __name__ == "__main__":
     parser.add_argument("--work-dir", dest="work_dir", type=str, help="directory with CutSets to store intermediate Feature archives inside")
     parser.add_argument("--device", dest="device", default="cuda:0" if torch.cuda.is_available() else "cpu", help="specifies device to execute this worker on")
     parser.add_argument("--audio-extractor", dest="audio_extractor", default="Encodec", help="Encodec or Fbank")
-    parser.add_argument("--batch-duration", dest="batch_duration", default=400, help="The maximum number of audio seconds in a batch. Determines batch size dynamically.")
+    parser.add_argument("--batch-duration", dest="batch_duration", type=int, default=400, help="The maximum number of audio seconds in a batch. Determines batch size dynamically.")
     parser.add_argument("--sample-rate", dest="sample_rate", type=int, default=None, help="If defined, resample cuts to this sample rate")
     parser.add_argument("--threads", dest="worker_threads", type=int, default=1, help="Support threads for this worker")
 
