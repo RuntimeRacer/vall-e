@@ -371,7 +371,7 @@ if __name__ == "__main__":
                     "python3",
                     "feature_extraction_worker.py",
                     "--worker-id",
-                    tokenizer_id,
+                    str(tokenizer_id),
                     "--cuts-file-name",
                     cuts_filename,
                     "--work-dir",
@@ -381,11 +381,11 @@ if __name__ == "__main__":
                     "--audio-extractor",
                     args.audio_extractor,
                     "--batch-duration",
-                    args.batch_duration,
+                    str(args.batch_duration),
                     "--sample-rate",
-                    args.sample_rate,
+                    str(args.sample_rate),
                     "--threads",
-                    args.threads_per_tokenizer
+                    str(args.threads_per_tokenizer)
                 ]
 
                 # Start Process and retrieve handles
