@@ -348,10 +348,23 @@ if __name__ == "__main__":
             prefix = f"{prefix}_"
 
         # Save cuts for processing
-        for subset_id, subset in enumerate(split_cut_sets):
-            # Save CutSet with Index
-            subset_filename = f"{prefix}cuts_{partition}_{subset_id}.{args.suffix}"
-            subset.to_file(f"{working_dir}/{subset_filename}")
+        def _save_subset(cut_subset, filename):
+            cut_subset.to_file(filename)
+        # Process Pool for speed up
+        with ProcessPoolExecutor(max_workers=task_capacity) as ex:
+            futures = []
+            for subset_id, subset in enumerate(split_cut_sets):
+                # Save CutSet with Index
+                subset_filename = f"{prefix}cuts_{partition}_{subset_id}.{args.suffix}"
+                subset_filename = f"{working_dir}/{subset_filename}"
+                futures.append(
+                    ex.submit(_save_subset, subset, subset_filename)
+                )
+
+            for future in futures:
+                # Just wait for futures to return
+                future.result()
+
         logging.info(f"CutSets distributed to {len(split_cut_sets)} files in directory {working_dir}")
         del split_cut_sets
 
@@ -369,7 +382,7 @@ if __name__ == "__main__":
                 # Build Commandline
                 worker_args = [
                     "python3",
-                    "feature_extraction_worker.py",
+                    "bin/feature_extraction_worker.py",
                     "--worker-id",
                     str(tokenizer_id),
                     "--cuts-file-name",
@@ -419,7 +432,7 @@ if __name__ == "__main__":
                     running = False
                     logging.info(f"Done processing for partition {partition}")
                 else:
-                    logging.info(f"Processing partition: {partition}. {done_process_count} of {total_process_count} tokenizers done.")
+                    logging.info(f"Processing partition: {partition}. {done_process_count} of {total_process_count} audio extractors done.")
                     time.sleep(10)
 
         except KeyboardInterrupt:
