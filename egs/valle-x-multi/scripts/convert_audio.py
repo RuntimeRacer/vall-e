@@ -39,9 +39,14 @@ def convert_to_target_format(file_path, target_format='.opus', delete_failed=Fal
         '-ac',
         '1',
         "-threads",
-        str(1),
-        str(new_file_path)
+        str(1)
     ]
+
+    if target_format == ".opus":
+        command.append("-c:a")
+        command.append("libopus")
+
+    command.append(str(new_file_path))
 
     # logging.info(command)
 
