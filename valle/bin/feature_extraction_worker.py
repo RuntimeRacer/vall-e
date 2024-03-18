@@ -48,7 +48,7 @@ class FeatureExtractionWorker:
         self.cuts_file = Path(f"{self.work_dir}/{self.cuts_file_name}")
         if not self.cuts_file.exists():
             raise RuntimeError(f"Worker-{self.worker_id}: Cuts file {self.cuts_file} does not exist")
-        cut_set = CutSet.from_file(self.cuts_file)
+        cut_set = CutSet.from_file(self.cuts_file).to_eager()
         logging.info(f"Worker-{self.worker_id}: processing '{self.cuts_file}' using Device: {self.device}")
 
         # Init extractor
@@ -78,7 +78,7 @@ class FeatureExtractionWorker:
                 cut_set = cut_set.compute_and_store_features_batch(
                     extractor=self.audio_extractor_instance,
                     storage_path=self.storage_path,
-                    manifest_path=f"{self.storage_path}_manifest.jsonl.gz",
+                    manifest_path=f"{self.storage_path}_intermediate.jsonl.gz",
                     num_workers=self.worker_threads,
                     batch_duration=self.batch_duration,
                     collate=False,
@@ -89,15 +89,15 @@ class FeatureExtractionWorker:
                 cut_set = cut_set.compute_and_store_features(
                     extractor=self.audio_extractor_instance,
                     storage_path=self.storage_path,
-                    manifest_path=f"{self.storage_path}_manifest.jsonl.gz",
+                    manifest_path=f"{self.storage_path}_intermediate.jsonl.gz",
                     num_jobs=self.worker_threads,
                     executor=None,
                     storage_type=NumpyHdf5Writer,
                 )
 
         logging.info(f"Worker-{self.worker_id}: feature extraction done. Saving updated Manifest...")
-        # Update Cuts file
-        cut_set.to_file(self.cuts_file.with_name(f"{self.cuts_file.stem}_encodec_processed{self.cuts_file.suffix}"))
+        # Update Initial Cuts file
+        cut_set.to_file(self.cuts_file)
         logging.info(f"Worker-{self.worker_id}: saving done.")
 
     def initialize_extractor(self):
@@ -106,10 +106,10 @@ class FeatureExtractionWorker:
 
         if self.audio_extractor == "Encodec":
             self.audio_extractor_instance = AudioTokenExtractor(AudioTokenConfig(), device=self.device)
-            self.storage_path = self.cuts_file.with_name(f"{self.cuts_file.stem}_encodec")
+            self.storage_path = self.cuts_file.with_name(f"{self.cuts_file.stem.split('.')[0]}_encodec")
         else:
             self.audio_extractor_instance = get_fbank_extractor(device=self.device)
-            self.storage_path = self.cuts_file.with_name(f"{self.cuts_file.stem}_fbank")
+            self.storage_path = self.cuts_file.with_name(f"{self.cuts_file.stem.split('.')[0]}_fbank")
 
 
     def shutdown(self):
