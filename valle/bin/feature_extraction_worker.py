@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 import sys
 import time
 from pathlib import Path
@@ -35,20 +36,25 @@ class FeatureExtractionWorker:
         self.sample_rate = sample_rate
         self.worker_threads = worker_threads
 
-        # Tokenizer
+        # Cuts file, Tokenizer and features storage
         self.audio_extractor_instance = None
+        self.cuts_file = None
+        self.storage_path = None
 
     def run(self):
-        # Init extractor
-        self.initialize_extractor()
         logging.info(f"Worker-{self.worker_id}: Initializing...")
 
         # Get CutSet from workdir
-        cuts_file = Path(f"{self.work_dir}/{self.cuts_file_name}")
-        if not cuts_file.exists():
-            raise RuntimeError(f"Worker-{self.worker_id}: Cuts file {cuts_file} does not exist")
-        cut_set = CutSet.from_file(cuts_file)
-        logging.info(f"Worker-{self.worker_id}: processing '{cuts_file}' using Device: {self.device}")
+        self.cuts_file = Path(f"{self.work_dir}/{self.cuts_file_name}")
+        if not self.cuts_file.exists():
+            raise RuntimeError(f"Worker-{self.worker_id}: Cuts file {self.cuts_file} does not exist")
+        cut_set = CutSet.from_file(self.cuts_file)
+        logging.info(f"Worker-{self.worker_id}: processing '{self.cuts_file}' using Device: {self.device}")
+
+        # Init extractor
+        self.initialize_extractor()
+        if not self.audio_extractor_instance:
+            raise RuntimeError("Extractor not initialized because improperly configured")
 
         # Resample if necessary
         if self.sample_rate:
@@ -71,7 +77,8 @@ class FeatureExtractionWorker:
             ):
                 cut_set = cut_set.compute_and_store_features_batch(
                     extractor=self.audio_extractor_instance,
-                    storage_path=storage_path,
+                    storage_path=self.storage_path,
+                    manifest_path=f"{self.storage_path}_manifest",
                     num_workers=self.worker_threads,
                     batch_duration=self.batch_duration,
                     collate=False,
@@ -81,20 +88,28 @@ class FeatureExtractionWorker:
             else:
                 cut_set = cut_set.compute_and_store_features(
                     extractor=self.audio_extractor_instance,
-                    storage_path=storage_path,
+                    storage_path=self.storage_path,
+                    manifest_path=f"{self.storage_path}_manifest",
                     num_jobs=self.worker_threads,
                     executor=None,
                     storage_type=NumpyHdf5Writer,
                 )
 
-
-
+        logging.info(f"Worker-{self.worker_id}: feature extraction done. Saving updated Manifest...")
+        # Update Cuts file
+        cut_set.to_file(self.cuts_file.with_name(f"{self.cuts_file.stem}_encodec_processed{self.cuts_file.suffix}"))
+        logging.info(f"Worker-{self.worker_id}: saving done.")
 
     def initialize_extractor(self):
-        if args.audio_extractor == "Encodec":
+        if not self.audio_extractor:
+            return None
+
+        if self.audio_extractor == "Encodec":
             self.audio_extractor_instance = AudioTokenExtractor(AudioTokenConfig(), device=self.device)
+            self.storage_path = self.cuts_file.with_name(f"{self.cuts_file.stem}_encodec")
         else:
             self.audio_extractor_instance = get_fbank_extractor(device=self.device)
+            self.storage_path = self.cuts_file.with_name(f"{self.cuts_file.stem}_fbank")
 
 
     def shutdown(self):

@@ -24,13 +24,16 @@ import argparse
 import logging
 import os
 import shutil
+import subprocess
+import sys
+import time
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from anyascii import anyascii
 import torch
 import torch.multiprocessing
-from lhotse import CutSet, NumpyHdf5Writer
+from lhotse import CutSet, NumpyHdf5Writer, combine
 from lhotse.recipes.utils import read_manifests_if_cached
 from tqdm.auto import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
@@ -135,17 +138,13 @@ def get_args():
     return parser.parse_args()
 
 
-def tokenize_cut_set(cut_set, index, working_dir, args):
+def tokenize_cut_set(cut_set, index, args):
     # Setup extractor
     text_tokenizer = None
     if args.text_extractor:
         text_tokenizer = TextTokenizer(backend=args.text_extractor)
     # Symbol set for this instance
     unique_symbols = set()
-
-    prefix = args.prefix
-    if prefix and not prefix.endswith("_"):
-        prefix = f"{prefix}_"
 
     with logging_redirect_tqdm():
         if args.text_extractor:
@@ -189,73 +188,10 @@ def tokenize_cut_set(cut_set, index, working_dir, args):
                     c.supervisions[0].custom["tokens"] = {"text": phonemes}
                     unique_symbols.update(phonemes)
 
-        # Save CutSet with Index
-        # cuts_filename = f"{prefix}cuts_{partition}_{index}.{args.suffix}"
-        # cut_set.to_file(f"{working_dir}/{cuts_filename}")
-
         if args.text_extractor:
             return index, cut_set, unique_symbols
         else:
             return None
-
-def process_manifests(args, accelerator, manifests_to_process):
-
-    audio_extractor = None
-    if args.audio_extractor:
-        if args.audio_extractor == "Encodec":
-            audio_extractor = AudioTokenExtractor(AudioTokenConfig(), device=accelerator.device)
-        else:
-            assert args.audio_extractor == "Fbank"
-            audio_extractor = get_fbank_extractor()
-
-    logging.info(f"Process using Device: {accelerator.device}")
-
-    # AudioTokenizer
-    if args.audio_extractor:
-        if args.audio_extractor == "Encodec":
-            storage_path = (
-                f"{args.output_dir}/{args.prefix}_encodec_{partition}"
-            )
-        else:
-            storage_path = (
-                f"{args.output_dir}/{args.prefix}_fbank_{partition}"
-            )
-
-        if args.prefix.lower() in ["ljspeech", "aishell", "baker", "commonvoice", "vall-e-x"]:
-            # resample
-            logging.info(f"resampling CutSet audio for partition {partition}")
-            cut_set = cut_set.resample(24000)
-            # https://github.com/lifeiteng/vall-e/issues/90
-            # if args.prefix == "aishell":
-            #     # NOTE: the loudness of aishell audio files is around -33
-            #     # The best way is datamodule --on-the-fly-feats --enable-audio-aug
-            #     cut_set = cut_set.normalize_loudness(
-            #         target=-20.0, affix_id=True
-            #     )
-
-        with torch.no_grad():
-            logging.info(f"Extracting CutSet features for partition {partition}")
-            if (
-                torch.cuda.is_available()
-                and args.audio_extractor == "Encodec"
-            ):
-                cut_set = cut_set.compute_and_store_features_batch(
-                    extractor=audio_extractor,
-                    storage_path=storage_path,
-                    num_workers=args.threads_per_device,
-                    batch_duration=args.batch_duration,
-                    collate=False,
-                    overwrite=True,
-                    storage_type=NumpyHdf5Writer,
-                )
-            else:
-                cut_set = cut_set.compute_and_store_features(
-                    extractor=audio_extractor,
-                    storage_path=storage_path,
-                    num_jobs=args.threads_per_device,
-                    executor=None,
-                    storage_type=NumpyHdf5Writer,
-                )
 
 
 if __name__ == "__main__":
@@ -298,11 +234,23 @@ if __name__ == "__main__":
 
     # determine total task capacity
     logging.info(f"CUDA available: {torch.cuda.is_available()}")
-    device_count = 1  # default 1 CPU
+
+    # Evaluate devices
+    devices = []
     if torch.cuda.is_available():
         device_count = torch.cuda.device_count()
-    task_capacity = device_count * args.tokenizers_per_device * args.threads_per_tokenizer
+        for dId in range(torch.cuda.device_count()):
+            devices.append('cuda:{0}'.format(dId))
+    else:
+        devices.append("cpu")
+        device_count = 1  # default 1 CPU
+
+    # Calculate task capacity
+    tokenizer_capacity = device_count * args.tokenizers_per_device
+    task_capacity = tokenizer_capacity * args.threads_per_tokenizer
     logging.info(f"{device_count} available devices for processing")
+    logging.info(f"tokenizer task capacity: {tokenizer_capacity}")
+    logging.info(f"threads per tokenizer: {args.threads_per_tokenizer}")
     logging.info(f"total task capacity: {task_capacity}")
 
     # Setup working directory
@@ -352,7 +300,7 @@ if __name__ == "__main__":
             futures = []
             for subset_id, subset in enumerate(split_cut_sets):
                 futures.append(
-                    ex.submit(tokenize_cut_set, subset, subset_id, working_dir, args)
+                    ex.submit(tokenize_cut_set, subset, subset_id, args)
                 )
 
             # Wait for processing to be done
@@ -380,6 +328,115 @@ if __name__ == "__main__":
             phonemes.to_file(phonemes_file)
 
         # Parallel Feature extraction
+        # recombine cut Sets
+        cut_set = combine(split_cut_sets)
+        # Split the CutSet according to processing threads
+        split_cut_sets = cut_set.split(num_splits=tokenizer_capacity)
+
+        # get prefix for cuts files
+        prefix = args.prefix
+        if prefix and not prefix.endswith("_"):
+            prefix = f"{prefix}_"
+
+        # Save cuts for processing
+        for subset_id, subset in enumerate(split_cut_sets):
+            # Save CutSet with Index
+            cuts_filename = f"{prefix}cuts_{partition}_{subset_id}.{args.suffix}"
+            cut_set.to_file(f"{working_dir}/{cuts_filename}")
+
+        # Spawn tokenizer processes for each device
+        log_handles = []
+        process_handles = []
+        tokenizer_id = -1
+        for dId, device in enumerate(devices):
+            for tId in range(args.tokenizers_per_device):
+                # Update Tokenizer ID
+                tokenizer_id += 1
+                # File to Process
+                cuts_filename = f"{prefix}cuts_{partition}_{tokenizer_id}.{args.suffix}"
+
+                # Build Commandline
+                worker_args = [
+                    "python3",
+                    "feature_extraction_worker.py",
+                    "--worker-id",
+                    tokenizer_id,
+                    "--cuts-file-name",
+                    cuts_filename,
+                    "--work-dir",
+                    working_dir,
+                    "--device",
+                    device,
+                    "--audio-extractor",
+                    args.audio_extractor,
+                    "--batch-duration",
+                    args.batch_duration,
+                    "--sample-rate",
+                    args.sample_rate,
+                    "--threads",
+                    args.threads_per_tokenizer
+                ]
+
+                # Start Process and retrieve handles
+                log_handle = open("{0}/feature-extraction-worker-{1}.log".format(working_dir, tokenizer_id), 'w')
+                process_handle = subprocess.Popen(worker_args, stderr=subprocess.STDOUT, stdout=log_handle)
+                process_handles.append(process_handle)
+                log_handles.append(log_handle)
+
+        # Wait until all process handles have finished
+        try:
+            running = True
+            while running:
+                total_process_count = len(process_handles)
+                done_process_count = 0
+                for hId, handle in enumerate(process_handles):
+                    return_code = handle.poll()
+                    if return_code is not None:
+                        done_process_count += 1
+                        # Close log handle if process done
+                        log_handle = log_handles[hId]
+                        if not log_handle.closed:
+                            try:
+                                log_handle.flush()
+                                log_handle.close()
+                            except Exception as e:
+                                logging.warning("Failed to close log handle: {0}".format(str(e)))
+                                pass
+
+                # Evaluate if done
+                if done_process_count == total_process_count:
+                    running = False
+                    logging.info(f"Done processing for partition {partition}")
+                else:
+                    logging.info(f"Processing partition: {partition}. {done_process_count} of {total_process_count} tokenizers done.")
+                    time.sleep(10)
+
+        except KeyboardInterrupt:
+            logging.info("Manual Interrupt!")
+            # Try to kill all workers
+            for handle in process_handles:
+                try:
+                    handle.kill()
+                except Exception as e:
+                    logging.warning("Failed to kill worker process: {0}".format(str(e)))
+                    pass
+
+            # Flush all logs and close file handles
+            for log in log_handles:
+                try:
+                    log.flush()
+                    log.close()
+                except Exception as e:
+                    logging.warning("Failed to close log handle: {0}".format(str(e)))
+                    pass
+
+            # Shutdown the script
+            try:
+                sys.exit(0)
+            except SystemExit:
+                os._exit(0)
+
+
 
 
 
