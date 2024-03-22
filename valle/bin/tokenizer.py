@@ -379,7 +379,6 @@ if __name__ == "__main__":
                 tokenizer_id += 1
                 # File to Process
                 cuts_filename = f"{prefix}cuts_{partition}_{tokenizer_id}.{args.suffix}"
-                final_cuts_files.append(cuts_filename)
 
                 # Build Commandline
                 worker_args = [
@@ -402,6 +401,10 @@ if __name__ == "__main__":
                     "--threads",
                     str(args.threads_per_tokenizer)
                 ]
+
+                # Add to list of final cuts files
+                cuts_filename = f"{working_dir}/{cuts_filename}"
+                final_cuts_files.append(cuts_filename)
 
                 # Start Process and retrieve handles
                 log_handle = open("{0}/feature-extraction-worker-{1}.log".format(working_dir, tokenizer_id), 'w')
