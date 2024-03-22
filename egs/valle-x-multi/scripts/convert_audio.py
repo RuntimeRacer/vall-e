@@ -43,8 +43,8 @@ def convert_to_target_format(file_path, target_format='.opus', delete_failed=Fal
     ]
 
     if target_format == ".opus":
-        command.append("-c:a")
-        command.append("libopus")
+        command.append("-map_metadata")
+        command.append("-1")
 
     command.append(str(new_file_path))
 
