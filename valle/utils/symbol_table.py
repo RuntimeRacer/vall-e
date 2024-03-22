@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import logging
 from dataclasses import dataclass
 from dataclasses import field
 from typing import Dict
@@ -89,12 +89,13 @@ class SymbolTable(Generic[Symbol]):
         id2sym: Dict[int, str] = dict()
         sym2id: Dict[str, int] = dict()
 
-        for line in s.split('\n'):
+        for i, line in enumerate(s.split('\n')):
             fields = line.split()
             if len(fields) == 0:
                 continue  # skip empty lines
-            assert len(fields) == 2, \
-                    f'Expect a line with 2 fields. Given: {len(fields)}'
+            if len(fields) != 2:
+                logging.warning(f'Expect a line with 2 fields. Given: {len(fields)} - skipping line {i}')
+                continue
             sym, idx = fields[0], int(fields[1])
             assert sym not in sym2id, f'Duplicated symbol {sym}'
             assert idx not in id2sym, f'Duplicated id {idx}'
