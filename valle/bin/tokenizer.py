@@ -119,7 +119,7 @@ def get_args():
     parser.add_argument(
         "--symbols-file",
         type=str,
-        default="unique_text_tokens.k2symbols",
+        default="unique_text_tokens",
         help="Path to a token file",
     )
     parser.add_argument(
@@ -293,9 +293,7 @@ if __name__ == "__main__":
         # Setup Symbol Table - reuse symbols file in case we want to extend existing training data with a new language
         if args.text_extractor:
             phonemes = SymbolTable()
-            phonemes_file = f"{args.output_dir}/{args.symbols_file}"
-            if Path(phonemes_file).is_file():
-                phonemes.from_file(phonemes_file)
+            phonemes_file = f"{args.output_dir}/{args.symbols_file}_{partition}.k2symbols"
 
         # Split the CutSet according to processing threads
         split_cut_sets = cut_set.split(num_splits=task_capacity)
@@ -330,7 +328,7 @@ if __name__ == "__main__":
             logging.info("All Cut-Subsets have been tokenized")
 
         # Save Phonemes
-        if phonemes_file:
+        if args.text_extractor and phonemes_file:
             phonemes.to_file(phonemes_file)
 
         # Parallel Feature extraction
