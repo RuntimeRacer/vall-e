@@ -46,6 +46,12 @@ def convert_to_target_format(file_path, target_format='.opus', delete_failed=Fal
         command.append("-map_metadata")
         command.append("-1")
 
+    if target_format == ".mp3":
+        command.append("-codec:a")
+        command.append("libmp3lame")
+        command.append("-q:a")
+        command.append("0")
+
     command.append(str(new_file_path))
 
     # logging.info(command)
