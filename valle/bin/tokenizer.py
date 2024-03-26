@@ -265,6 +265,11 @@ if __name__ == "__main__":
         shutil.rmtree(working_dir)  # clear existing dir
     os.makedirs(working_dir, exist_ok=True)
 
+    # Setup Global Symbol Table - reuse symbols file in case we want to extend existing training data with a new language
+    if args.text_extractor:
+        global_phonemes = SymbolTable()
+        global_phonemes_file = f"{args.output_dir}/{args.symbols_file}.k2symbols"
+
     # Get CutSets and split them according to task count
     for partition, m in manifests.items():
         logging.info(
@@ -319,6 +324,7 @@ if __name__ == "__main__":
                     else:
                         for s in sorted(list(symbol_list)):
                             phonemes.add(s)
+                            global_phonemes.add(s)
                 # Update CutSet references in list
                 split_cut_sets[subset_id] = subset
                 with logging_redirect_tqdm():
@@ -471,6 +477,9 @@ if __name__ == "__main__":
             except SystemExit:
                 os._exit(0)
 
+        # Save Global Phonemes
+        if args.text_extractor and global_phonemes_file:
+            global_phonemes.to_file(global_phonemes_file)
 
 
 
