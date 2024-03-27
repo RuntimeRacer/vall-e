@@ -124,6 +124,8 @@ def build_audio_dataset_manifest(directory, output_file_name=None, language='', 
             f"{output_file_name}_recordings_{language}.jsonl.gz"
         )
 
+    logging.info(f"created supervision and recording sets for {len(recording_set)} recordings and {len(supervision_set)} supervisions")
+
 
 def process_transcript(transcript_path, audio_file_path, language):
     # Read transcript file content
