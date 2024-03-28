@@ -269,6 +269,8 @@ if __name__ == "__main__":
     if args.text_extractor:
         global_phonemes = SymbolTable()
         global_phonemes_file = f"{args.output_dir}/{args.symbols_file}.k2symbols"
+        if Path(global_phonemes_file).exists():
+            global_phonemes = SymbolTable.from_file(global_phonemes_file)
 
     # Get CutSets and split them according to task count
     for partition, m in manifests.items():
@@ -299,6 +301,8 @@ if __name__ == "__main__":
         if args.text_extractor:
             phonemes = SymbolTable()
             phonemes_file = f"{args.output_dir}/{args.symbols_file}_{partition}.k2symbols"
+            if Path(phonemes_file).exists():
+                phonemes = SymbolTable.from_file(phonemes_file)
 
         # Split the CutSet according to processing threads
         split_cut_sets = cut_set.split(num_splits=task_capacity)
