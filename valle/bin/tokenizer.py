@@ -371,7 +371,12 @@ if __name__ == "__main__":
 
             for future in futures:
                 # Just wait for futures to return
-                future.result()
+                try:
+                    future.result()
+                except Exception as e:
+                    logging.warning(f"Exception while processing: {str(e)}")
+                    root_exception = future.exception()
+                    logging.warning(f"Initially caused by exception: {str(root_exception)}")
 
         logging.info(f"CutSets distributed to {len(split_cut_sets)} files in directory {working_dir}")
         del split_cut_sets
