@@ -357,6 +357,7 @@ class AudioTokenExtractor(FeatureExtractor):
                 )
                 for wav in samples
             ]
+            samples = torch.stack(samples, 0)  # convert samples from list to tensor
         # Extract discrete codes from EnCodec
         with torch.no_grad():
             try:

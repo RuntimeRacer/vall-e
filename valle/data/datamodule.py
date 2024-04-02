@@ -152,6 +152,22 @@ class TtsDataModule:
             "shuffled for each epoch.",
         )
         group.add_argument(
+            "--buffer-size",
+            type=int,
+            default=40000,
+            help="How many cuts (or cut pairs, triplets) we hold at any time across all of the buckets."
+                 "Increasing ``max_duration`` (batch_size) or ``num_buckets`` might require increasing this number."
+                 "It will result in larger memory usage.",
+        )
+        group.add_argument(
+            "--shuffle-buffer-size",
+            type=int,
+            default=100000,
+            help="How many cuts (or cut pairs, triplets) are being held in memory"
+                 "a buffer used for streaming shuffling. Larger number means better randomness at the cost"
+                 "of higher memory usage.",
+        )
+        group.add_argument(
             "--drop-last",
             type=str2bool,
             default=False,
@@ -309,7 +325,10 @@ class TtsDataModule:
                 cuts_train,
                 max_duration=self.args.max_duration,
                 shuffle=self.args.shuffle,
-                num_buckets=self.args.num_buckets,
+                buffer_size=self.args.buffer_size,
+                shuffle_buffer_size=self.args.shuffle_buffer_size,
+                quadratic_duration=10,
+                num_cuts_for_bins_estimate=10000,
                 drop_last=True,
             )
         else:
