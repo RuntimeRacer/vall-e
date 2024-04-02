@@ -261,8 +261,8 @@ if __name__ == "__main__":
 
     # Setup working directory
     working_dir = Path(f"{args.output_dir}/work")
-    if working_dir.exists():
-        shutil.rmtree(working_dir)  # clear existing dir
+    # if working_dir.exists():
+    #     shutil.rmtree(working_dir)  # clear existing dir
     os.makedirs(working_dir, exist_ok=True)
 
     # Setup Global Symbol Table - reuse symbols file in case we want to extend existing training data with a new language
