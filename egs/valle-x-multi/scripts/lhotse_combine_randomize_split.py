@@ -54,7 +54,7 @@ def cuts_combine_randomize_split(src_dir, out_dir, dataset_parts, prefix, suffix
     combined_cut_set.to_file(f"{out_dir}/cuts_complete.jsonl.gz")
 
     # Load complete CutSet into memory
-    combined_cut_set = lhotse.load_manifest(f"{out_dir}/cuts_complete.jsonl")
+    combined_cut_set = lhotse.load_manifest(f"{out_dir}/cuts_complete.jsonl.gz")
 
     # Shuffle if defined
     if randomize_cuts:
