@@ -147,14 +147,14 @@ class TtsDataModule:
         group.add_argument(
             "--shuffle",
             type=str2bool,
-            default=True,
+            default=False,
             help="When enabled (=default), the examples will be "
             "shuffled for each epoch.",
         )
         group.add_argument(
             "--buffer-size",
             type=int,
-            default=40000,
+            default=10000,
             help="How many cuts (or cut pairs, triplets) we hold at any time across all of the buckets."
                  "Increasing ``max_duration`` (batch_size) or ``num_buckets`` might require increasing this number."
                  "It will result in larger memory usage.",
@@ -162,7 +162,7 @@ class TtsDataModule:
         group.add_argument(
             "--shuffle-buffer-size",
             type=int,
-            default=100000,
+            default=20000,
             help="How many cuts (or cut pairs, triplets) are being held in memory"
                  "a buffer used for streaming shuffling. Larger number means better randomness at the cost"
                  "of higher memory usage.",
