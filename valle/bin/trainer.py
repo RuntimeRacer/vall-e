@@ -659,8 +659,7 @@ def train_one_epoch(
     batch_idx = 0
     while True:
         # Emptying the CUDA cache after before each iteration can reduce the chance of OOM
-        if rank == 0:
-            torch.cuda.empty_cache()
+        torch.cuda.empty_cache()
 
         # Get next batch
         try:
