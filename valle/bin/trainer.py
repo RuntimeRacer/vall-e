@@ -658,6 +658,10 @@ def train_one_epoch(
 
     batch_idx = 0
     while True:
+        # Emptying the CUDA cache after before each iteration can reduce the chance of OOM
+        torch.cuda.empty_cache()
+
+        # Get next batch
         try:
             batch = next(iter_dl)
         except StopIteration:
@@ -685,11 +689,6 @@ def train_one_epoch(
             # NOTE: We use reduction==sum and loss is computed over utterances
             # in the batch and there is no normalization to it so far.
             scaler.scale(loss).backward()
-
-            # emptying the CUDA cache after the first step can
-            # reduce the chance of OOM
-            if batch_idx == 1:
-                torch.cuda.empty_cache()
 
         except Exception as e:  # noqa
             # Save the broken batch
