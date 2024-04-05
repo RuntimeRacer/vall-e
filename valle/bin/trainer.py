@@ -437,6 +437,9 @@ def load_checkpoint_if_available(
         for k in keys:
             params[k] = saved_params[k]
 
+        if params.start_batch != 0 and saved_params["batch_idx_train"] != params.start_batch:
+            params["batch_idx_train"] = params.start_batch
+
         if params.start_batch > 0:
             if "cur_epoch" in saved_params:
                 params["start_epoch"] = saved_params["cur_epoch"]
