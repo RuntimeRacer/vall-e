@@ -672,30 +672,36 @@ def train_one_epoch(
         audio_features_lens = batch['audio_features_lens'].tolist()
         text_tokens_lens = batch['text_tokens_lens'].tolist()
         batch_size = len(text_tokens_lens)
+        indexes_to_remove = []
         saved = False
         for idx, audio_len in enumerate(audio_features_lens):
             text_len = text_tokens_lens[idx]
             if text_len > audio_len*2:
+                indexes_to_remove.append(idx)
                 if not saved:
                     display_and_save_batch(batch, params=params, filename=f"rank-{rank}-idx-{batch_idx+1}")
                     saved = True
-                # Remove entry from batch
-                del batch['utt_id'][idx]
-                del batch['text'][idx]
-                if idx < (batch_size - 1):
-                    batch['audio_features'] = torch.cat((batch['audio_features'][:idx], batch['audio_features'][idx + 1:]))
-                    batch['audio_features_lens'] = torch.cat((batch['audio_features_lens'][:idx], batch['audio_features_lens'][idx + 1:]))
-                    batch['text_tokens'] = torch.cat((batch['text_tokens'][:idx], batch['text_tokens'][idx + 1:]))
-                    batch['text_tokens_lens'] = torch.cat((batch['text_tokens_lens'][:idx], batch['text_tokens_lens'][idx + 1:]))
-                    batch['languages'] = torch.cat((batch['languages'][:idx], batch['languages'][idx + 1:]))
-                else:
-                    batch['audio_features'] = batch['audio_features'][:idx]
-                    batch['audio_features_lens'] = batch['audio_features_lens'][:idx]
-                    batch['text_tokens'] = batch['text_tokens'][:idx]
-                    batch['text_tokens_lens'] = batch['text_tokens_lens'][:idx]
-                    batch['languages'] = batch['languages'][:idx]
-                logging.warning(f"skipped potentially broken entry in batch ID {batch_idx+1}")
-                batch_size -= 1
+
+        # Reverse and remove
+        indexes_to_remove.reverse()
+        for idx in indexes_to_remove:
+            # Remove entry from batch
+            del batch['utt_id'][idx]
+            del batch['text'][idx]
+            if idx < (batch_size - 1):
+                batch['audio_features'] = torch.cat((batch['audio_features'][:idx], batch['audio_features'][idx + 1:]))
+                batch['audio_features_lens'] = torch.cat((batch['audio_features_lens'][:idx], batch['audio_features_lens'][idx + 1:]))
+                batch['text_tokens'] = torch.cat((batch['text_tokens'][:idx], batch['text_tokens'][idx + 1:]))
+                batch['text_tokens_lens'] = torch.cat((batch['text_tokens_lens'][:idx], batch['text_tokens_lens'][idx + 1:]))
+                batch['languages'] = torch.cat((batch['languages'][:idx], batch['languages'][idx + 1:]))
+            else:
+                batch['audio_features'] = batch['audio_features'][:idx]
+                batch['audio_features_lens'] = batch['audio_features_lens'][:idx]
+                batch['text_tokens'] = batch['text_tokens'][:idx]
+                batch['text_tokens_lens'] = batch['text_tokens_lens'][:idx]
+                batch['languages'] = batch['languages'][:idx]
+            logging.warning(f"skipped potentially broken entry in batch ID {batch_idx + 1}")
+            batch_size -= 1
 
         if batch_size <= 0:
             logging.warning(f"empty batch for batch ID {batch_idx + 1}, fetching next batch")
@@ -1138,7 +1144,7 @@ def run(rank, world_size, args):
 def display_and_save_batch(
     batch: dict,
     params: AttributeDict,
-    filename: str,
+    filename: str = None,
 ) -> None:
     """Display the batch statistics and save the batch into disk.
 
