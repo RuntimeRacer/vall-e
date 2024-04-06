@@ -672,9 +672,13 @@ def train_one_epoch(
         audio_features_lens = batch['audio_features_lens'].tolist()
         text_tokens_lens = batch['text_tokens_lens'].tolist()
         batch_size = len(text_tokens_lens)
+        saved = False
         for idx, audio_len in enumerate(audio_features_lens):
             text_len = text_tokens_lens[idx]
             if text_len > audio_len*2:
+                if not saved:
+                    display_and_save_batch(batch, params=params, filename=f"rank-0-idx-{batch_idx+1}")
+                    saved = True
                 # Remove entry from batch
                 del batch['utt_id'][idx]
                 del batch['text'][idx]
@@ -1134,6 +1138,7 @@ def run(rank, world_size, args):
 def display_and_save_batch(
     batch: dict,
     params: AttributeDict,
+    filename: str,
 ) -> None:
     """Display the batch statistics and save the batch into disk.
 
@@ -1143,10 +1148,15 @@ def display_and_save_batch(
         for the content in it.
       params:
         Parameters for training. See :func:`get_params`.
+      filename:
+        name of the file to store the batch content
     """
     from lhotse.utils import uuid4
 
-    filename = f"{params.exp_dir}/batch-{uuid4()}.pt"
+    if not filename:
+        filename = f"{params.exp_dir}/batch-{uuid4()}.pt"
+    else:
+        filename = f"{params.exp_dir}/batch-{filename}.pt"
     logging.info(f"Saving batch to {filename}")
     torch.save(batch, filename)
 
