@@ -667,6 +667,36 @@ def train_one_epoch(
             logging.info("Reaches end of dataloader.")
             break
 
+        # Filter out batches which potentially cause OOM because of bad data
+        # Case 1: Text length wildly exceeding audio length
+        audio_features_lens = batch['audio_features_lens'].tolist()
+        text_tokens_lens = batch['text_tokens_lens'].tolist()
+        batch_size = len(text_tokens_lens)
+        for idx, audio_len in enumerate(audio_features_lens):
+            text_len = text_tokens_lens[idx]
+            if text_len > audio_len*2:
+                # Remove entry from batch
+                del batch['utt_id'][idx]
+                del batch['text'][idx]
+                if idx < (batch_size-1):
+                    batch['audio_features'] = torch.cat(batch['audio_features'][:idx], batch['audio_features'][idx+1])
+                    batch['audio_features_lens'] = torch.cat(batch['audio_features_lens'][:idx], batch['audio_features_lens'][idx + 1])
+                    batch['text_tokens'] = torch.cat(batch['text_tokens'][:idx], batch['text_tokens'][idx + 1])
+                    batch['text_tokens_lens'] = torch.cat(batch['text_tokens_lens'][:idx], batch['text_tokens_lens'][idx + 1])
+                    batch['languages'] = torch.cat(batch['languages'][:idx], batch['languages'][idx + 1])
+                else:
+                    batch['audio_features'] = batch['audio_features'][:idx]
+                    batch['audio_features_lens'] = batch['audio_features_lens'][:idx]
+                    batch['text_tokens'] = batch['text_tokens'][:idx]
+                    batch['text_tokens_lens'] = batch['text_tokens_lens'][:idx]
+                    batch['languages'] = batch['languages'][:idx]
+                logging.warning(f"skipped potentially broken entry in batch ID {batch_idx+1}")
+                batch_size -= 1
+
+        if batch_size <= 0:
+            logging.warning(f"empty batch for batch ID {batch_idx + 1}, fetching next batch")
+            continue
+
         batch_idx += 1
 
         params.batch_idx_train += 1
