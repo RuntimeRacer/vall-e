@@ -678,12 +678,12 @@ def train_one_epoch(
                 # Remove entry from batch
                 del batch['utt_id'][idx]
                 del batch['text'][idx]
-                if idx < (batch_size-1):
-                    batch['audio_features'] = torch.cat(batch['audio_features'][:idx], batch['audio_features'][idx+1])
-                    batch['audio_features_lens'] = torch.cat(batch['audio_features_lens'][:idx], batch['audio_features_lens'][idx + 1])
-                    batch['text_tokens'] = torch.cat(batch['text_tokens'][:idx], batch['text_tokens'][idx + 1])
-                    batch['text_tokens_lens'] = torch.cat(batch['text_tokens_lens'][:idx], batch['text_tokens_lens'][idx + 1])
-                    batch['languages'] = torch.cat(batch['languages'][:idx], batch['languages'][idx + 1])
+                if idx < (batch_size - 1):
+                    batch['audio_features'] = torch.cat((batch['audio_features'][:idx], batch['audio_features'][idx + 1:]))
+                    batch['audio_features_lens'] = torch.cat((batch['audio_features_lens'][:idx], batch['audio_features_lens'][idx + 1:]))
+                    batch['text_tokens'] = torch.cat((batch['text_tokens'][:idx], batch['text_tokens'][idx + 1:]))
+                    batch['text_tokens_lens'] = torch.cat((batch['text_tokens_lens'][:idx], batch['text_tokens_lens'][idx + 1:]))
+                    batch['languages'] = torch.cat((batch['languages'][:idx], batch['languages'][idx + 1:]))
                 else:
                     batch['audio_features'] = batch['audio_features'][:idx]
                     batch['audio_features_lens'] = batch['audio_features_lens'][:idx]
