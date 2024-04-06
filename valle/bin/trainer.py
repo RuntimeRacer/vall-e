@@ -677,7 +677,7 @@ def train_one_epoch(
             text_len = text_tokens_lens[idx]
             if text_len > audio_len*2:
                 if not saved:
-                    display_and_save_batch(batch, params=params, filename=f"rank-0-idx-{batch_idx+1}")
+                    display_and_save_batch(batch, params=params, filename=f"rank-{rank}-idx-{batch_idx+1}")
                     saved = True
                 # Remove entry from batch
                 del batch['utt_id'][idx]
