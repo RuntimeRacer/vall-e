@@ -12,7 +12,9 @@ def analyse_batch(batch_file):
     batch = torch.load(batch_file)
 
     # Remove entry from batch
+    audio_features = batch['audio_features'].tolist()
     audio_features_lens = batch['audio_features_lens'].tolist()
+    text_tokens = batch['text_tokens'].tolist()
     text_tokens_lens = batch['text_tokens_lens'].tolist()
     batch_size = len(text_tokens_lens)
     indexes_to_remove = []
@@ -39,6 +41,10 @@ def analyse_batch(batch_file):
             batch['text_tokens_lens'] = batch['text_tokens_lens'][:idx]
             batch['languages'] = batch['languages'][:idx]
 
+    # Reshape tensor
+    new_lengths = torch.count_nonzero(batch['text_tokens'], dim=1)
+    new_max_length = torch.max(new_lengths)
+    batch['text_tokens'] = batch['text_tokens'][:, :new_max_length]
 
     logging.info(batch)
 
