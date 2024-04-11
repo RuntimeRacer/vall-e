@@ -85,7 +85,7 @@ class TextTokenCollater:
         return tokens, tokens_lens
 
     def __call__(self, texts: List[str]) -> Tuple[torch.Tensor, torch.Tensor]:
-        tokens_seqs = [[p if p != '' else None for p in text] for text in texts]
+        tokens_seqs = [[p for p in text if p != ''] for text in texts]
         max_len = len(max(tokens_seqs, key=len))
 
         seqs = [
