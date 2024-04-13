@@ -1065,7 +1065,7 @@ def run(rank, world_size, args):
         # Override base LRs if they're deviating from defined LR in args
         for idx, base_lr in enumerate(scheduler.base_lrs):
             if base_lr != params.base_lr:
-                logging.info(f"overriding saved base LR with LR {params.base_lr}")
+                logging.info(f"overriding saved base LR {base_lr} with LR {params.base_lr}")
                 scheduler.base_lrs[idx] = params.base_lr
 
     if params.inf_check:
