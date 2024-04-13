@@ -1062,6 +1062,8 @@ def run(rank, world_size, args):
     ):
         logging.info("Loading scheduler state dict")
         scheduler.load_state_dict(checkpoints["scheduler"])
+        # Override base LRs if they're deviating from defined LR in args
+        scheduler.base_lrs = [params.base_lr if params.base_lr else base_lr for base_lr in scheduler.base_lrs]
 
     if params.inf_check:
         register_inf_check_hooks(model)
