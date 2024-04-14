@@ -609,6 +609,7 @@ def train_one_epoch(
     scheduler: LRSchedulerType,
     train_dl: torch.utils.data.DataLoader,
     valid_dl: torch.utils.data.DataLoader,
+    train_total_samples: int,
     rng: random.Random,
     scaler: GradScaler,
     model_avg: Optional[nn.Module] = None,
@@ -635,6 +636,8 @@ def train_one_epoch(
         Dataloader for the training dataset.
       valid_dl:
         Dataloader for the validation dataset.
+      train_total_samples:
+        Total amount of samples in dataloader
       rng:
         Random for selecting.
       scaler:
@@ -660,12 +663,16 @@ def train_one_epoch(
         dtype, enabled = torch.float16, True
 
     batch_idx = 0
+    samples_processed = 0
     while True:
         try:
             batch = next(iter_dl)
         except StopIteration:
             logging.info("Reaches end of dataloader.")
             break
+
+        # Accumulate batch size before fixing for precise counting
+        samples_processed += len(batch['text'])
 
         # Filter out batches which potentially cause OOM because of bad data
         # Case 1: Text length wildly exceeding audio length
@@ -791,6 +798,7 @@ def train_one_epoch(
             params.batch_idx_train > 0
             and params.batch_idx_train % params.save_every_n == 0
         ):
+
             # Perform Operation in rank 0
             if rank == 0:
                 save_checkpoint_with_global_batch_idx(
@@ -836,11 +844,14 @@ def train_one_epoch(
                 else 1.0
             )
 
+            epoch_processed = float(samples_processed) / float(train_total_samples)
+
             logging.info(
                 f"Epoch {params.cur_epoch}, "
                 f"batch {batch_idx}, train_loss[{loss_info}], "
                 f"tot_loss[{tot_loss}], "
                 f"batch size: {batch_size}, "
+                f"epoch processed: {epoch_processed:.3f}, "
                 f"lr: {cur_lr:.2e}"
                 + (
                     f", grad_scale: {cur_grad_scale}"
@@ -852,6 +863,9 @@ def train_one_epoch(
             if tb_writer is not None:
                 tb_writer.add_scalar(
                     "train/learning_rate", cur_lr, params.batch_idx_train
+                )
+                tb_writer.add_scalar(
+                    "train/epoch_processed", epoch_processed, params.batch_idx_train
                 )
                 loss_info.write_summary(
                     tb_writer,
@@ -1092,6 +1106,10 @@ def run(rank, world_size, args):
     )
     valid_dl = dataset.valid_dataloaders(valid_cuts)
 
+    # Processed amount metric
+    train_total_samples = len(train_dl)
+    logging.info(f"Total number of samples in dataloader: {train_total_samples}")
+
     if params.oom_check:
         scan_pessimistic_batches_for_oom(
             model=model,
@@ -1127,6 +1145,7 @@ def run(rank, world_size, args):
             scheduler=scheduler,
             train_dl=train_dl,
             valid_dl=valid_dl,
+            train_total_samples=train_total_samples,
             rng=rng,
             scaler=scaler,
             tb_writer=tb_writer,
