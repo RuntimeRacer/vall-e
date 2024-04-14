@@ -1107,7 +1107,7 @@ def run(rank, world_size, args):
     valid_dl = dataset.valid_dataloaders(valid_cuts)
 
     # Processed amount metric
-    train_total_samples = len(train_cuts)
+    train_total_samples = 100000000  # len(train_cuts) just override this for now with rough estimate
     logging.info(f"Total number of cuts in train dataset: {train_total_samples}")
 
     if params.oom_check:
