@@ -851,6 +851,7 @@ def train_one_epoch(
                 f"batch {batch_idx}, train_loss[{loss_info}], "
                 f"tot_loss[{tot_loss}], "
                 f"batch size: {batch_size}, "
+                f"samples processed: {samples_processed}, "
                 f"epoch processed: {epoch_processed:.3f}, "
                 f"lr: {cur_lr:.2e}"
                 + (
