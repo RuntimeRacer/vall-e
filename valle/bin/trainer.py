@@ -1107,8 +1107,8 @@ def run(rank, world_size, args):
     valid_dl = dataset.valid_dataloaders(valid_cuts)
 
     # Processed amount metric
-    train_total_samples = len(train_dl)
-    logging.info(f"Total number of samples in dataloader: {train_total_samples}")
+    train_total_samples = len(train_cuts)
+    logging.info(f"Total number of cuts in train dataset: {train_total_samples}")
 
     if params.oom_check:
         scan_pessimistic_batches_for_oom(
