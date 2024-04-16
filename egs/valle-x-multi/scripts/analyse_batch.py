@@ -41,10 +41,13 @@ def analyse_batch(batch_file):
             batch['text_tokens_lens'] = batch['text_tokens_lens'][:idx]
             batch['languages'] = batch['languages'][:idx]
 
-    # Reshape tensor
-    new_lengths = torch.count_nonzero(batch['text_tokens'], dim=1)
-    new_max_length = torch.max(new_lengths)
-    batch['text_tokens'] = batch['text_tokens'][:, :new_max_length]
+    # Reshape tensors
+    new_lengths_audio = batch['audio_features_lens'].tolist()
+    new_lengths_text = torch.count_nonzero(batch['text_tokens'], dim=1)
+    new_max_length_audio = max(new_lengths_audio)
+    new_max_length_text = torch.max(new_lengths_text)
+    batch['audio_features'] = batch['audio_features'][:, :new_max_length_audio]
+    batch['text_tokens'] = batch['text_tokens'][:, :new_max_length_text]
 
     logging.info(batch)
 
