@@ -662,6 +662,8 @@ def train_one_epoch(
     elif params.dtype in ["float16", "fp16"]:
         dtype, enabled = torch.float16, True
 
+    sampler_start_batch_idx = train_dl.sampler.diagnostics.current_epoch_stats.total_batches
+
     batch_idx = 0
     samples_processed = 0
     while True:
@@ -847,14 +849,17 @@ def train_one_epoch(
                 else 1.0
             )
 
-            epoch_processed = float(samples_processed) / float(train_total_samples)
+            average_samples_per_batch = samples_processed / batch_idx
+            estimated_total_samples = average_samples_per_batch * sampler_start_batch_idx + samples_processed
+
+            epoch_processed = (float(estimated_total_samples)) / float(train_total_samples)
 
             logging.info(
                 f"Epoch {params.cur_epoch}, "
                 f"batch {batch_idx}, train_loss[{loss_info}], "
                 f"tot_loss[{tot_loss}], "
                 f"batch size: {batch_size}, "
-                f"samples processed: {samples_processed}, "
+                f"samples processed: {estimated_total_samples}, "
                 f"epoch processed: {epoch_processed:.3f}, "
                 f"lr: {cur_lr:.2e}"
                 + (
