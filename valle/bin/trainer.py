@@ -852,7 +852,7 @@ def train_one_epoch(
             average_samples_per_batch = samples_processed / batch_idx
             estimated_total_samples = average_samples_per_batch * sampler_start_batch_idx + samples_processed
 
-            epoch_processed = (float(estimated_total_samples)) / float(train_total_samples)
+            epoch_processed = (float(estimated_total_samples)) / float(train_total_samples) * world_size
 
             logging.info(
                 f"Epoch {params.cur_epoch}, "
