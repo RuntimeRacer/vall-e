@@ -685,7 +685,7 @@ def train_one_epoch(
         saved = False
         for idx, audio_len in enumerate(audio_features_lens):
             text_len = text_tokens_lens[idx]
-            if text_len > audio_len*2:
+            if text_len > audio_len*2 or audio_len < 4:
                 indexes_to_remove.append(idx)
                 if not saved:
                     display_and_save_batch(batch, params=params, filename=f"rank-{rank}-idx-{batch_idx+1}")
