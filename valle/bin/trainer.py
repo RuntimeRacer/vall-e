@@ -564,16 +564,72 @@ def compute_loss(
     return predicts, loss, info
 
 
+def check_batch_fix_problems(batch, params, rank, batch_idx):
+    # Filter out batches which potentially cause OOM because of bad data
+    # Case 1: Text length wildly exceeding audio length
+    audio_features_lens = batch['audio_features_lens'].tolist()
+    text_tokens_lens = batch['text_tokens_lens'].tolist()
+    batch_size = len(text_tokens_lens)
+    indexes_to_remove = []
+    saved = False
+    for idx, audio_len in enumerate(audio_features_lens):
+        text_len = text_tokens_lens[idx]
+        if text_len > audio_len * 2 or audio_len < 4:
+            indexes_to_remove.append(idx)
+            if not saved:
+                display_and_save_batch(batch, params=params, filename=f"idx-{batch_idx + 1}-rank-{rank}")
+                saved = True
+
+    if len(indexes_to_remove) > 0:
+        # Reverse and remove
+        indexes_to_remove.reverse()
+        for idx in indexes_to_remove:
+            # Remove entry from batch
+            del batch['utt_id'][idx]
+            del batch['text'][idx]
+            if idx < (batch_size - 1):
+                batch['audio_features'] = torch.cat((batch['audio_features'][:idx], batch['audio_features'][idx + 1:]))
+                batch['audio_features_lens'] = torch.cat((batch['audio_features_lens'][:idx], batch['audio_features_lens'][idx + 1:]))
+                batch['text_tokens'] = torch.cat((batch['text_tokens'][:idx], batch['text_tokens'][idx + 1:]))
+                batch['text_tokens_lens'] = torch.cat((batch['text_tokens_lens'][:idx], batch['text_tokens_lens'][idx + 1:]))
+                batch['languages'] = torch.cat((batch['languages'][:idx], batch['languages'][idx + 1:]))
+            else:
+                batch['audio_features'] = batch['audio_features'][:idx]
+                batch['audio_features_lens'] = batch['audio_features_lens'][:idx]
+                batch['text_tokens'] = batch['text_tokens'][:idx]
+                batch['text_tokens_lens'] = batch['text_tokens_lens'][:idx]
+                batch['languages'] = batch['languages'][:idx]
+            logging.warning(f"skipped potentially broken entry in batch ID {batch_idx + 1}")
+            batch_size -= 1
+
+        # Reshape tensor
+        new_lengths_audio = batch['audio_features_lens'].tolist()
+        new_lengths_text = torch.count_nonzero(batch['text_tokens'], dim=1)
+        new_max_length_audio = max(new_lengths_audio)
+        new_max_length_text = torch.max(new_lengths_text)
+        batch['audio_features'] = batch['audio_features'][:, :new_max_length_audio]
+        batch['text_tokens'] = batch['text_tokens'][:, :new_max_length_text]
+
+    return batch, batch_size
+
+
 def compute_validation_loss(
     params: AttributeDict,
     model: Union[nn.Module, DDP],
     valid_dl: torch.utils.data.DataLoader,
     world_size: int = 1,
+    rank: int = 0,
 ) -> MetricsTracker:
     """Run the validation process."""
     tot_loss = MetricsTracker()
 
     for batch_idx, batch in enumerate(valid_dl):
+        # Validate batch
+        batch, batch_size = check_batch_fix_problems(batch, params, rank, batch_idx)
+        if batch_size <= 0:
+            logging.warning(f"empty batch for validation batch ID {batch_idx + 1}, fetching next batch")
+            continue
+
         predicts, loss, loss_info = compute_loss(
             params=params,
             model=model,
@@ -676,51 +732,8 @@ def train_one_epoch(
         # Accumulate batch size before fixing for precise counting
         samples_processed += len(batch['text'])
 
-        # Filter out batches which potentially cause OOM because of bad data
-        # Case 1: Text length wildly exceeding audio length
-        audio_features_lens = batch['audio_features_lens'].tolist()
-        text_tokens_lens = batch['text_tokens_lens'].tolist()
-        batch_size = len(text_tokens_lens)
-        indexes_to_remove = []
-        saved = False
-        for idx, audio_len in enumerate(audio_features_lens):
-            text_len = text_tokens_lens[idx]
-            if text_len > audio_len*2 or audio_len < 4:
-                indexes_to_remove.append(idx)
-                if not saved:
-                    display_and_save_batch(batch, params=params, filename=f"rank-{rank}-idx-{batch_idx+1}")
-                    saved = True
-
-        if len(indexes_to_remove) > 0:
-            # Reverse and remove
-            indexes_to_remove.reverse()
-            for idx in indexes_to_remove:
-                # Remove entry from batch
-                del batch['utt_id'][idx]
-                del batch['text'][idx]
-                if idx < (batch_size - 1):
-                    batch['audio_features'] = torch.cat((batch['audio_features'][:idx], batch['audio_features'][idx + 1:]))
-                    batch['audio_features_lens'] = torch.cat((batch['audio_features_lens'][:idx], batch['audio_features_lens'][idx + 1:]))
-                    batch['text_tokens'] = torch.cat((batch['text_tokens'][:idx], batch['text_tokens'][idx + 1:]))
-                    batch['text_tokens_lens'] = torch.cat((batch['text_tokens_lens'][:idx], batch['text_tokens_lens'][idx + 1:]))
-                    batch['languages'] = torch.cat((batch['languages'][:idx], batch['languages'][idx + 1:]))
-                else:
-                    batch['audio_features'] = batch['audio_features'][:idx]
-                    batch['audio_features_lens'] = batch['audio_features_lens'][:idx]
-                    batch['text_tokens'] = batch['text_tokens'][:idx]
-                    batch['text_tokens_lens'] = batch['text_tokens_lens'][:idx]
-                    batch['languages'] = batch['languages'][:idx]
-                logging.warning(f"skipped potentially broken entry in batch ID {batch_idx + 1}")
-                batch_size -= 1
-
-            # Reshape tensor
-            new_lengths_audio = batch['audio_features_lens'].tolist()
-            new_lengths_text = torch.count_nonzero(batch['text_tokens'], dim=1)
-            new_max_length_audio = max(new_lengths_audio)
-            new_max_length_text = torch.max(new_lengths_text)
-            batch['audio_features'] = batch['audio_features'][:, :new_max_length_audio]
-            batch['text_tokens'] = batch['text_tokens'][:, :new_max_length_text]
-
+        # Validate batch
+        batch, batch_size = check_batch_fix_problems(batch, params, rank, batch_idx)
         if batch_size <= 0:
             logging.warning(f"empty batch for batch ID {batch_idx + 1}, fetching next batch")
             continue
@@ -904,6 +917,7 @@ def train_one_epoch(
                     model=model,
                     valid_dl=valid_dl,
                     world_size=world_size,
+                    rank=rank
                 )
             logging.info(
                 f"Epoch {params.cur_epoch}, validation: {valid_info}"
