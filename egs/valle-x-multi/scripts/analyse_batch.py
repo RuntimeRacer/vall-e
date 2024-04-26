@@ -20,7 +20,7 @@ def analyse_batch(batch_file):
     indexes_to_remove = []
     for idx, audio_len in enumerate(audio_features_lens):
         text_len = text_tokens_lens[idx]
-        if text_len > audio_len * 2 or audio_len < 4:
+        if text_len > audio_len * 1.5 or audio_len < 4:
             indexes_to_remove.append(idx)
 
     # Reverse and remove
