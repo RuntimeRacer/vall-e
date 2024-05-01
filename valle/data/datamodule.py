@@ -239,6 +239,7 @@ class TtsDataModule:
         self,
         cuts_train: CutSet,
         sampler_state_dict: Optional[Dict[str, Any]] = None,
+        start_batch_idx: int = None
     ) -> DataLoader:
         """
         Args:
@@ -346,6 +347,8 @@ class TtsDataModule:
         if sampler_state_dict is not None:
             logging.info("Loading sampler state dict")
             train_sampler.load_state_dict(sampler_state_dict)
+        elif start_batch_idx is not None:
+            train_sampler.diagnostics.current_epoch_stats.total_batches = start_batch_idx
 
         # 'seed' is derived from the current random state, which will have
         # previously been set in the main process.
