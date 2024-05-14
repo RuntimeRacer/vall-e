@@ -55,6 +55,27 @@ class NoamScheduler(torch.optim.lr_scheduler._LRScheduler):
         self._step_count = step
 
 
+class FixedLRScheduler(torch.optim.lr_scheduler._LRScheduler):
+    def __init__(
+        self,
+        base_lr: float,
+        optimizer: torch.optim.Optimizer,
+        last_epoch: int = -1,
+        verbose: bool = False,
+    ) -> None:
+
+        self.base_lr = base_lr
+        self.num_param_groups = len(optimizer.param_groups)
+
+        super().__init__(optimizer, last_epoch, verbose)
+
+    def get_lr(self) -> float:
+        return [self.base_lr] * self.num_param_groups
+
+    def set_step(self, step: int):
+        self._step_count = step
+
+
 def get_scheduler(params, optimizer):
     if params.scheduler_name.lower() == "eden":
         scheduler = Eden(optimizer, params.warmup_steps*4, 1, warmup_batches=params.warmup_steps)
@@ -68,6 +89,11 @@ def get_scheduler(params, optimizer):
             warmup_steps=params.warmup_steps,
         )
         # scheduler.set_step(params.start_batch or params.batch_idx_train)
+    elif params.scheduler_name.lower() == "fixed":
+        scheduler = FixedLRScheduler(
+            params.base_lr,
+            optimizer,
+        )
     elif params.scheduler_name.lower() == "cosine":
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             params.warmup_steps,
